@@ -13,6 +13,8 @@ const loginUsuario = async (req = request, res = response) => {
         return res.status(400).json({ message: 'Por favor ingresa tu contraseña' });
     }
 
+    console.log("HOLAAAA");
+
     // Consulta SQL adaptada a la nueva base de datos
     const loginUsuarioQuery = `
         SELECT id_usuario, nombre, correo, contrasena, rol

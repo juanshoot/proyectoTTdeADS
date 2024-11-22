@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs"); // Usamos bcrypt para hashear contraseñas
 // Función para registrar un usuario
 const createUser = async (req = request, res = response) => {
     const { correo, clave, boleta, rol, nombre } = req.body;
-    
+
     try {
     // Convertir todos los valores a string y sanitizar entrada
     const correoStr = String(correo || '').trim();

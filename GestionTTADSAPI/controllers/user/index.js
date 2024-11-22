@@ -1,9 +1,9 @@
-const {loginUsuario} = require("./utils/userLogin");
-const {registerUsuario} = require("./utils/createUser");
+const {userLogin} = require("./utils/userLogin.user");
+const {createUser} = require("./utils/createUser.user");
 
 
 
 module.exports = {
-    loginUsuario,
-    registerUsuario
+    userLogin,
+    createUser
 }

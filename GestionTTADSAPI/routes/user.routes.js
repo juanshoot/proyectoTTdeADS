@@ -1,6 +1,6 @@
 const {Router} = require('express');
-const {loginUsuario} = require("../controllers/user");
-const {registerUsuario} = require("../controllers/user");
+const {userLogin} = require("../controllers/user");
+const {createUser} = require("../controllers/user");
 
 
 //const{validarLogin} = require("../middlewares/validateLogin");
@@ -10,8 +10,8 @@ const {registerUsuario} = require("../controllers/user");
 const router = Router();
 
 
-router.post('/loginUsuario', loginUsuario);
-router.post('/registerUsuario', registerUsuario);
+router.post('/inicioSesion', userLogin);
+router.post('/registroUsuario', createUser);
 
 
 

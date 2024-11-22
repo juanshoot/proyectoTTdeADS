@@ -3,36 +3,49 @@ const { getConnection } = require("../../../models/sqlConnection"); // Conexión
 const bcrypt = require("bcryptjs"); // Usamos bcrypt para comparar contraseñas
 const { generarToken } = require("../../../helpers/generate-jwt");
 
-const loginUsuario = async (req = request, res = response) => {
-    const { correo, password } = req.body;
+const userLogin = async (req = request, res = response) => {
+    const { correo, clave, boleta } = req.body;
 
+    try {
+    // Validaciones iniciales
     if (!correo) {
         return res.status(400).json({ message: 'Por favor ingresa tu correo' });
     }
-    if (!password) {
+    if (!clave) {
         return res.status(400).json({ message: 'Por favor ingresa tu contraseña' });
     }
+    if (!boleta) {
+        return res.status(400).json({ message: 'Por favor ingresa tu boleta' });
+    }
 
-    console.log("HOLAAAA");
+    // Convertir datos a string para evitar errores inesperados
+    const correoStr = String(correo).trim();
+    const claveStr = String(clave).trim();
+    const boletaStr = String(boleta).trim();
 
-    // Consulta SQL adaptada a la nueva base de datos
+    // Validación de boleta: debe tener exactamente 10 dígitos
+    if (boletaStr.length !== 10 || isNaN(boletaStr)) {
+        return res.status(400).json({ message: 'La boleta debe ser un número de 10 dígitos' });
+    }
+
+    // Consulta SQL adaptada
     const loginUsuarioQuery = `
-        SELECT id_usuario, nombre, correo, contrasena, rol
+        SELECT id_usuario, nombre, correo, contrasena, rol, boleta
         FROM Usuarios
-        WHERE correo = ?`; // Usamos '?' para evitar inyecciones SQL
+        WHERE correo = ? AND boleta = ?`;
 
-    try {
+
         const pool = await getConnection(); // Conectamos a la base de datos
-        const [result] = await pool.execute(loginUsuarioQuery, [correo]); // Ejecutamos la consulta
+        const [result] = await pool.execute(loginUsuarioQuery, [correoStr, boletaStr]); // Ejecutamos la consulta
 
         if (result.length < 1) {
-            return res.status(400).json({ message: 'Este usuario no se encontró o no está registrado. Verifica tus datos e inténtalo de nuevo' });
+            return res.status(400).json({ message: 'El usuario no se encontró o no está registrado. Verifica tus datos e inténtalo de nuevo' });
         }
 
         const usuario = result[0]; // Extraemos el primer usuario encontrado
 
         // Verificar si las contraseñas coinciden usando bcrypt
-        const passwordMatch = await bcrypt.compare(password, usuario.contrasena); 
+        const passwordMatch = await bcrypt.compare(claveStr, usuario.contrasena);
 
         if (!passwordMatch) {
             return res.status(400).json({ message: 'La contraseña es incorrecta, verifica tus datos e inténtalo de nuevo' });
@@ -62,13 +75,16 @@ const loginUsuario = async (req = request, res = response) => {
 
         let token = await generarToken(payload); // Función para generar el token
 
+        /*
         // Registrar el intento de inicio de sesión (fecha de actualización)
         const updateLoginQuery = `
             UPDATE Usuarios
             SET fecha_creacion = NOW()  -- Actualizamos la fecha de creación si es necesario
             WHERE id_usuario = ?`;
+            
 
         await pool.execute(updateLoginQuery, [usuario.id_usuario]);
+        */
 
         return res.status(200).json({ token });
     } catch (error) {
@@ -77,4 +93,4 @@ const loginUsuario = async (req = request, res = response) => {
     }
 };
 
-module.exports = { loginUsuario };
+module.exports = { userLogin };

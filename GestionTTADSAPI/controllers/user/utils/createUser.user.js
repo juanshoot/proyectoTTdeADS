@@ -54,18 +54,18 @@ const createUser = async (req = request, res = response) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(claveStr, saltRounds);
 
-    // Verificar si el correo o la boleta ya existen
+    // Verificar si el correo o la boleta o nombre ya existen
     const checkExistenceQuery = `
         SELECT id_usuario
         FROM Usuarios
-        WHERE correo = ? OR boleta = ?`;
+        WHERE  nombre = ? OR correo = ? OR boleta = ? `;
 
 
         const pool = await getConnection(); // Conectamos a la base de datos
 
-        const [existingUser] = await pool.execute(checkExistenceQuery, [correoStr, boletaStr]);
+        const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, boletaStr]);
         if (existingUser.length > 0) {
-            return res.status(400).json({ message: 'El correo o la boleta ya están registrados' });
+            return res.status(400).json({ message: 'El correo, nombre o la boleta ya están registrados' });
         }
 
         // Insertar el nuevo usuario en la base de datos

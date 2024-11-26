@@ -2,112 +2,132 @@
 CREATE DATABASE GestionTT;
 USE GestionTT;
 
+DROP TABLE IF EXISTS Usuarios;
+DROP DATABASE IF EXISTS GestionTT;
+
 -- Tabla de usuarios
 CREATE TABLE Usuarios (
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    correo VARCHAR(100) UNIQUE NOT NULL,
-    contrasena VARCHAR(255) NOT NULL,
-    rol ENUM('Estudiante', 'Sinodal', 'CATT') NOT NULL,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    rol ENUM('Estudiante', 'Sinodal', 'CATT','Director') NOT NULL,
+    id_equipo INT ,
+    id_protocolo INT ,
+    nombre VARCHAR(250) NOT NULL,
+    correo VARCHAR(250) UNIQUE NOT NULL,
+    boleta VARCHAR(50),
+    contrasena VARCHAR(150),
+    nombre_equipo VARCHAR(150),
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de equipos
+CREATE TABLE Equipos (
+    id_equipo INT AUTO_INCREMENT PRIMARY KEY,
+    lider VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el líder del equipo
+    nombre_equipo VARCHAR(150) NOT NULL,
+    titulo VARCHAR(255),
+    id_protocolo INT, -- Protocolo asociado al equipo
+    sinodal VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
+    director VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el director
+    area VARCHAR(100),
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tabla de protocolos
 CREATE TABLE Protocolos (
     id_protocolo INT AUTO_INCREMENT PRIMARY KEY,
+    id_equipo INT, -- Protocolo asociado al equipo
+    lider VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el líder del protocolo
     titulo VARCHAR(255) NOT NULL,
-    descripcion TEXT NOT NULL,
-    id_estudiante INT,
-    fecha_envio DATE NOT NULL,
+    etapa ENUM('Registro', 'Revisión', 'Evaluación', 'Retroalimentación', 'Finalizado'),
+    director VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el director del protocolo
+    sinodal VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal del protocolo
+    catt VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el CATT
+    calificacion VARCHAR(100) NOT NULL  DEFAULT 'Pendiente',
+    comentarios VARCHAR(255) NOT NULL,
     estado ENUM('Registrado', 'Revisión', 'Aprobado', 'No Aprobado') DEFAULT 'Registrado',
-    FOREIGN KEY (id_estudiante) REFERENCES Usuarios(id_usuario)
-        ON DELETE SET NULL
-        ON UPDATE CASCADE
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de asignaciones de sinodales
-CREATE TABLE Asignaciones (
-    id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
-    id_protocolo INT NOT NULL,
-    id_sinodal INT NOT NULL,
-    fecha_asignacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
-    FOREIGN KEY (id_sinodal) REFERENCES Usuarios(id_usuario)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
+-- Tabla de permisos
+CREATE TABLE Permisos (
+    id_usuario INT,
+    permisos VARCHAR(10) NOT NULL, -- Descripción de los permisos asignados
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de evaluaciones de protocolos
-CREATE TABLE Evaluaciones (
-    id_evaluacion INT AUTO_INCREMENT PRIMARY KEY,
-    id_protocolo INT NOT NULL,
-    id_sinodal INT NOT NULL,
-    comentarios TEXT,
-    dictamen ENUM('Aprobado', 'No Aprobado', 'Pendiente') NOT NULL,
-    fecha_evaluacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
-    FOREIGN KEY (id_sinodal) REFERENCES Usuarios(id_usuario)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
-);
+-- ----------------------------------------- CAMBIOS ------------------------------------------------------------
 
--- Tabla de etapas del protocolo
-CREATE TABLE Etapas (
-    id_etapa INT AUTO_INCREMENT PRIMARY KEY,
-    id_protocolo INT NOT NULL,
-    etapa_actual ENUM('Registro', 'Revisión', 'Evaluación', 'Retroalimentación', 'Finalizado') NOT NULL,
-    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
-);
+-- Tabla Usuarios
+ALTER TABLE Usuarios
+ADD CONSTRAINT fk_usuario_equipo
+FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+ADD CONSTRAINT fk_usuario_protocolo
+FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE;
+
+-- Tabla Equipos
+ALTER TABLE Equipos
+ADD CONSTRAINT fk_equipo_protocolo
+FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE;
+
+-- Tabla Protocolos
+ALTER TABLE Protocolos
+ADD CONSTRAINT fk_protocolo_equipo
+FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE;
 
 
--- Insertar usuarios
-INSERT INTO Usuarios (nombre, correo, contrasena, rol)
-VALUES 
-('Martín Cortés', 'martin.cortes@example.com', 'hashed_password_1', 'Estudiante'),
-('Valeria Alarcón', 'valeria.alarcon@example.com', 'hashed_password_2', 'Estudiante'),
-('Alexis López', 'alexis.lopez@example.com', 'hashed_password_3', 'Estudiante'),
-('Juan Ochoa', 'juan.ochoa@example.com', 'hashed_password_4', 'Sinodal'),
-('José Olguín', 'jose.olguin@example.com', 'hashed_password_5', 'CATT');
+-- Tabla Permisos
+ALTER TABLE Permisos
+ADD CONSTRAINT fk_permisos_usuario
+FOREIGN KEY (id_usuario) REFERENCES Usuarios(id_usuario)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE;
+    
+-- ----------------------------------------- CAMBIOS ------------------------------------------------------------
+
+
+SELECT * FROM Usuarios;
+SELECT * FROM Equipos;
+SELECT * FROM Protocolos;
+SELECT * FROM Permisos;
+
+DELETE FROM Equipos WHERE id_equipo = 7;
+
+
+
+
+
+-- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------
+
+
+-- Insertar equipos
+INSERT INTO Equipos (lider, nombre_equipo, titulo, id_protocolo, sinodal, director, area)
+VALUES
+(1, 'Equipo A', 'Investigación en IA', NULL, 4, 5, 'Tecnología'),
+(2, 'Equipo B', 'Automatización de Procesos', NULL, 4, 5, 'Ingeniería'),
+(3, 'Equipo C', 'Redes de Comunicación', NULL, 4, 5, 'Telecomunicaciones');
 
 -- Insertar protocolos
-INSERT INTO Protocolos (titulo, descripcion, id_estudiante, fecha_envio, estado)
+INSERT INTO Protocolos (id_equipo, lider, titulo, etapa, director, sinodal, catt, calificacion, comentarios, estado)
 VALUES
-('Sistema de Gestión de Protocolos', 'Proyecto para optimizar el proceso de evaluación de TT.', 1, '2024-11-01', 'Registrado'),
-('Automatización de Tareas Académicas', 'Propuesta para reducir tareas administrativas.', 2, '2024-11-02', 'Revisión'),
-('Análisis de Algoritmos', 'Estudio comparativo de algoritmos de optimización.', 3, '2024-11-03', 'Aprobado'),
-('Seguridad en Redes', 'Implementación de herramientas para proteger redes.', 1, '2024-11-04', 'No Aprobado'),
-('Inteligencia Artificial en Educación', 'Uso de IA para personalizar la enseñanza.', 2, '2024-11-05', 'Revisión');
+(1, 1, 'Sistema de Gestión de Protocolos', 'Registro', 5, 4, 3, 'Pendiente', 'En desarrollo', 'Registrado'),
+(2, 2, 'Automatización de Tareas Académicas', 'Revisión', 5, 4, 3, 'Pendiente', 'Faltan detalles', 'Revisión'),
+(3, 3, 'Análisis de Algoritmos', 'Evaluación', 5, 4, 3, 'Aprobado', 'Cumple con los requisitos', 'Aprobado');
 
--- Insertar asignaciones
-INSERT INTO Asignaciones (id_protocolo, id_sinodal)
+-- Insertar permisos
+INSERT INTO Permisos (id_usuario, permisos)
 VALUES
-(1, 4),
-(2, 4),
-(3, 4),
-(4, 4),
-(5, 4);
+(1, 'Ver protocolos, Crear protocolos'),
+(2, 'Ver protocolos'),
+(3, 'Ver protocolos, Evaluar protocolos'),
+(4, 'Ver protocolos, Evaluar protocolos, Asignar protocolos'),
+(5, 'Administrar protocolos');
 
--- Insertar evaluaciones
-INSERT INTO Evaluaciones (id_protocolo, id_sinodal, comentarios, dictamen)
-VALUES
-(1, 4, 'Buen avance, pero faltan detalles en la descripción.', 'Pendiente'),
-(2, 4, 'Se requiere mayor claridad en los objetivos.', 'Pendiente'),
-(3, 4, 'Excelente trabajo, cumple con todos los criterios.', 'Aprobado'),
-(4, 4, 'No cumple con los requisitos básicos.', 'No Aprobado'),
-(5, 4, 'Faltan referencias bibliográficas.', 'Pendiente');
-
--- Insertar etapas
-INSERT INTO Etapas (id_protocolo, etapa_actual)
-VALUES
-(1, 'Registro'),
-(2, 'Revisión'),
-(3, 'Evaluación'),
-(4, 'Retroalimentación'),
-(5, 'Revisión');
+-- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------

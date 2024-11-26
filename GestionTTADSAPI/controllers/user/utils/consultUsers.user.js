@@ -5,8 +5,9 @@ const consultUsers = async (req = request, res = response) => {
     const { rol, fecha, boleta, correo } = req.body; // Usamos el cuerpo de la solicitud
 
     try {
+        
         let query = `
-            SELECT id_usuario, nombre, correo, rol, boleta, fecha_creacion
+            SELECT id_usuario, nombre, correo, rol, boleta, fecha_registro
             FROM Usuarios
             WHERE 1=1
         `;
@@ -57,7 +58,7 @@ const consultUsers = async (req = request, res = response) => {
                     });
                 }
 
-                query += " AND fecha_creacion BETWEEN ? AND ?";
+                query += " AND fecha_registro BETWEEN ? AND ?";
                 queryParams.push(fechaInicio, fechaFin);
             }
         }
@@ -97,11 +98,11 @@ const consultUsers = async (req = request, res = response) => {
             });
         }
 
-        // Convertir fecha_creacion a formato DD/MM/YYYY
+        // Convertir fecha_registro a formato DD/MM/YYYY
         const usuarios = result.map(user => {
-            const fecha = new Date(user.fecha_creacion);
+            const fecha = new Date(user.fecha_registro);
             const fechaFormateada = `${("0" + fecha.getDate()).slice(-2)}/${("0" + (fecha.getMonth() + 1)).slice(-2)}/${fecha.getFullYear()}`;
-            return { ...user, fecha_creacion: fechaFormateada };
+            return { ...user, fecha_registro: fechaFormateada };
         });
 
         // Responder con los usuarios

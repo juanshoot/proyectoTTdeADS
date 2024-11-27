@@ -7,6 +7,9 @@ const {deleteUser} = require("../controllers/user");
 
 
 const {newTeam} = require("../controllers/user");
+const {consultTeam} = require("../controllers/user");
+const {deleteTeam} = require("../controllers/user");
+const {updateTeam} = require("../controllers/user");
 
 
 //const{validarLogin} = require("../middlewares/validateLogin");
@@ -24,6 +27,15 @@ router.post('/darDeBajaUsuario', deleteUser);
 
 //equipos
 router.post('/nuevoEquipo', newTeam);
+router.post('/consultarEquipos', consultTeam);
+router.post('/darDeBajaEquipo', deleteTeam);
+router.post('/actualizarEquipo', updateTeam);
+
+
+
+
+
+
 
 
 

@@ -5,7 +5,10 @@ const {updateUser} = require("./utils/updateUser.user");
 const {deleteUser} = require("./utils/deleteUser.user");
 
 //equipos
-const {newTeam} = require("./utils/teams/newTeam.user")
+const {newTeam} = require("./utils/teams/newTeam.user");
+const {consultTeam} = require("./utils/teams/consultTeam.user");
+const {updateTeam} = require("./utils/teams/updateTeam.user");
+const {deleteTeam} = require("./utils/teams/deleteTeam.user");
 
 
 module.exports = {
@@ -16,5 +19,8 @@ module.exports = {
     deleteUser,
 
 //equipos
-    newTeam
+    newTeam,
+    consultTeam,
+    updateTeam,
+    deleteTeam
 }

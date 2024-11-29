@@ -5,9 +5,16 @@ const consultUsers = async (req = request, res = response) => {
     const { rol, fecha, boleta, correo } = req.body; // Usamos el cuerpo de la solicitud
 
     try {
-        
+
+           // Validar si al menos un campo tiene un valor válido
+           if (!rol && !fecha && !boleta && !correo) {
+            return res.status(400).json({
+                message: "Por favor ingresa al menos un campo válido para consultar usuarios (rol y fecha de registro, boleta o correo)."
+            });
+        }
+
         let query = `
-            SELECT id_usuario, nombre, correo, rol, boleta, fecha_registro
+            SELECT nombre, correo, rol, boleta, fecha_registro
             FROM Usuarios
             WHERE 1=1
         `;

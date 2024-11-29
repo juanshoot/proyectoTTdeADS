@@ -25,7 +25,9 @@ class Server
 
 
         this.rutaUsuario = '/api/gestionTT/usuario'
+        this.rutaProtocolo = '/api/gestionTT/protocolos'
 
+       
        
 
     
@@ -47,6 +49,7 @@ class Server
     routes()
     {
         this.app.use(this.rutaUsuario,require('../routes/user.routes'));
+        this.app.use(this.rutaProtocolo,require('../routes/protocol.routes'));
 
 
          //No more routes FROM HERE

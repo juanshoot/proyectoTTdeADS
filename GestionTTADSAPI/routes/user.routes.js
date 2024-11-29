@@ -12,18 +12,18 @@ const {deleteTeam} = require("../controllers/user");
 const {updateTeam} = require("../controllers/user");
 
 
-//const{validarLogin} = require("../middlewares/validateLogin");
-//const{validateAuth} = require ("../middlewares/validateAuth")
+const{validarLogin} = require("../middlewares/validateLogin");
+// const{validateAuth} = require ("../middlewares/validateAuth")
 
 
 const router = Router();
 
 
 router.post('/inicioSesion', userLogin);
-router.post('/registroUsuario', createUser);
-router.post('/consultarUsuarios', consultUsers);
-router.post('/actualizarUsuario', updateUser);
-router.post('/darDeBajaUsuario', deleteUser);
+router.post('/registroUsuario',[validarLogin],createUser);
+router.post('/consultarUsuarios', [validarLogin],consultUsers);
+router.post('/actualizarUsuario',[validarLogin], updateUser);
+router.post('/darDeBajaUsuario',[validarLogin], deleteUser);
 
 //equipos
 router.post('/nuevoEquipo', newTeam);

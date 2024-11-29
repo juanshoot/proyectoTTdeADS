@@ -41,13 +41,6 @@ const deleteTeam = async (req = request, res = response) => {
 
         const id_equipo = team[0].id_equipo;
 
-        // Eliminar el equipo de la tabla Equipos
-        const queryDeleteTeam = `
-            DELETE FROM Equipos 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryDeleteTeam, [id_equipo]);
-
         // Actualizar a los usuarios asociados al equipo para quitarles la referencia al equipo eliminado
         const queryUpdateUsers = `
             UPDATE Usuarios 
@@ -55,6 +48,20 @@ const deleteTeam = async (req = request, res = response) => {
             WHERE id_equipo = ?;
         `;
         await pool.execute(queryUpdateUsers, [id_equipo]);
+
+        // Eliminar protocolos asociados al equipo
+        const queryDeleteProtocols = `
+            DELETE FROM Protocolos 
+            WHERE id_equipo = ?;
+        `;
+        await pool.execute(queryDeleteProtocols, [id_equipo]);
+
+        // Eliminar el equipo de la tabla Equipos
+        const queryDeleteTeam = `
+            DELETE FROM Equipos 
+            WHERE id_equipo = ?;
+        `;
+        await pool.execute(queryDeleteTeam, [id_equipo]);
 
         // Respuesta exitosa
         return res.status(200).json({

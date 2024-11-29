@@ -81,6 +81,10 @@ ADD CONSTRAINT fk_protocolo_equipo
 FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo)
     ON DELETE SET NULL
     ON UPDATE CASCADE;
+    
+    -- Agregar la columna "area" a la tabla Protocolos
+ALTER TABLE Protocolos
+ADD COLUMN area VARCHAR(150);
 
 
 -- Tabla Permisos

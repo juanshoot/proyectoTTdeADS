@@ -88,6 +88,11 @@ CREATE TABLE Permisos (
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE PermisosESPECIALES (
+    nombre VARCHAR(100),
+    permisos VARCHAR(10) NOT NULL, -- Descripción de los permisos asignados
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE Etapas (
     id_etapa VARCHAR(100),
@@ -101,20 +106,10 @@ CREATE TABLE EstadoRevision (
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE Academia (
-    id_academia VARCHAR(100),
-    academia VARCHAR(150) NOT NULL, -- Descripción de los estados asignados
+CREATE TABLE Ramas (
+    id_rama VARCHAR(100),
+    ramas VARCHAR(150) NOT NULL, -- Descripción de los estados asignados
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tabla para registrar cambios
-CREATE TABLE ABC (
-    id_cambio INT AUTO_INCREMENT PRIMARY KEY,      -- ID del cambio
-    tabla_afectada VARCHAR(100) NOT NULL,           -- Tabla donde se hizo el cambio (Ej: Usuarios, Equipos, Protocolos)
-    id_registro INT NOT NULL,                       -- ID del registro afectado
-    cambio_realizado TEXT NOT NULL,                 -- Descripción del cambio realizado
-    usuario VARCHAR(100) NOT NULL,                  -- Nombre del usuario que hizo el cambio
-    fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Fecha y hora del cambio
 );
 
 
@@ -198,11 +193,11 @@ SELECT * FROM Protocolos;
 SELECT * FROM TrabajoTerminal;
 
 SELECT * FROM Permisos;
-
+SELECT * FROM PermisosESPECIALES;
 
 SELECT * FROM Etapas;
 SELECT * FROM EstadoRevision;
-SELECT * FROM Academia;
+SELECT * FROM Ramas;
 
 
 

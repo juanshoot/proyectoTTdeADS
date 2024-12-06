@@ -19,6 +19,7 @@ module.exports = {
     deleteUser,
 
 //equipos
+
     newTeam,
     consultTeam,
     updateTeam,

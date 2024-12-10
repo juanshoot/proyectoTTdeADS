@@ -2,7 +2,7 @@ const {Router} = require('express');
 const {userLogin} = require("../controllers/user");
 const {createUser} = require("../controllers/user");
 const {consultUsers} = require("../controllers/user");
-const {updateUser} = require("../controllers/user");
+const {updateStudent} = require("../controllers/user");
 const {deleteUser} = require("../controllers/user");
 
 
@@ -20,9 +20,9 @@ const router = Router();
 
 
 router.post('/inicioSesion', userLogin);
-router.post('/registroUsuario',[validarLogin],createUser);
+router.post('/registroUsuario',createUser);
 router.post('/consultarUsuarios', [validarLogin],consultUsers);
-router.post('/actualizarUsuario',[validarLogin], updateUser);
+router.post('/actualizarEstudiante',[validarLogin], updateStudent);
 router.post('/darDeBajaUsuario',[validarLogin], deleteUser);
 
 //equipos

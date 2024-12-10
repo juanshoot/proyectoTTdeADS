@@ -1,7 +1,8 @@
 const {userLogin} = require("./utils/userLogin.user");
 const {createUser} = require("./utils/createUser.user");
 const {consultUsers} = require("./utils/consultUsers.user");
-const {updateUser} = require("./utils/updateUser.user");
+
+const {updateStudent} = require("./utils/updateStudent.user");
 const {deleteUser} = require("./utils/deleteUser.user");
 
 //equipos
@@ -15,7 +16,7 @@ module.exports = {
     userLogin,
     createUser,
     consultUsers,
-    updateUser,
+    updateStudent,
     deleteUser,
 
 //equipos

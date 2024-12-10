@@ -4,39 +4,34 @@ const bcrypt = require("bcryptjs"); // Usamos bcrypt para comparar contraseñas
 const { generarToken } = require("../../../helpers/generate-jwt");
 
 const userLogin = async (req = request, res = response) => {
-    const { correo, clave, boleta } = req.body;
+    const { correo, contrasena } = req.body; // Ahora solo pedimos correo y contraseña
 
     try {
-    // Validaciones iniciales
-    if (!correo) {
-        return res.status(400).json({ message: 'Por favor ingresa tu correo' });
-    }
-    if (!clave) {
-        return res.status(400).json({ message: 'Por favor ingresa tu contraseña' });
-    }
-    if (!boleta) {
-        return res.status(400).json({ message: 'Por favor ingresa tu boleta' });
-    }
+        // Validaciones iniciales
+        if (!correo) {
+            return res.status(400).json({ message: 'Por favor ingresa tu correo' });
+        }
+        if (!contrasena) {
+            return res.status(400).json({ message: 'Por favor ingresa tu contraseña' });
+        }
 
-    // Convertir datos a string para evitar errores inesperados
-    const correoStr = String(correo).trim();
-    const claveStr = String(clave).trim();
-    const boletaStr = String(boleta).trim();
+        // Convertir datos a string para evitar errores inesperados
+        const correoStr = String(correo).trim();
+        const contrasenaStr = String(contrasena).trim();
 
-    // Validación de boleta: debe tener exactamente 10 dígitos
-    if (boletaStr.length !== 10 || isNaN(boletaStr)) {
-        return res.status(400).json({ message: 'La boleta debe ser un número de 10 dígitos' });
-    }
-
-    // Consulta SQL adaptada
-    const loginUsuarioQuery = `
-        SELECT id_usuario, nombre, correo, contrasena, rol, boleta
-        FROM Usuarios
-        WHERE correo = ? AND boleta = ?`;
-
+        // Consulta SQL adaptada para buscar en ambas tablas: Alumnos y Docentes
+        const loginUsuarioQuery = `
+            SELECT id_alumno AS id_usuario, nombre, correo, contrasena, rol, 'ALUMNO' AS tipo
+            FROM Alumnos
+            WHERE correo = ?
+            UNION
+            SELECT id_docente AS id_usuario, nombre, correo, contrasena, rol, 'DOCENTE' AS tipo
+            FROM Docentes
+            WHERE correo = ?
+        `;
 
         const pool = await getConnection(); // Conectamos a la base de datos
-        const [result] = await pool.execute(loginUsuarioQuery, [correoStr, boletaStr]); // Ejecutamos la consulta
+        const [result] = await pool.execute(loginUsuarioQuery, [correoStr, correoStr]); // Ejecutamos la consulta
 
         if (result.length < 1) {
             return res.status(400).json({ message: 'El usuario no se encontró o no está registrado. Verifica tus datos e inténtalo de nuevo' });
@@ -45,26 +40,24 @@ const userLogin = async (req = request, res = response) => {
         const usuario = result[0]; // Extraemos el primer usuario encontrado
 
         // Verificar si las contraseñas coinciden usando bcrypt
-        const passwordMatch = await bcrypt.compare(claveStr, usuario.contrasena);
+        const passwordMatch = await bcrypt.compare(contrasenaStr, usuario.contrasena);
 
         if (!passwordMatch) {
             return res.status(400).json({ message: 'La contraseña es incorrecta, verifica tus datos e inténtalo de nuevo' });
         }
 
-        // Si la contraseña es correcta, generamos el token
-        const tipoUsuario = usuario.rol.trim().toLowerCase();
+        // Generar el token con permisos
+        const tipoUsuario = usuario.tipo.toUpperCase();
         let permisos;
 
         // Asignación de permisos dependiendo del rol
-        if (tipoUsuario === 'sinodal') {
-            permisos = 'acceso_limitado';
-        } else if (tipoUsuario === 'catt') {
-            permisos = 'acceso_total';
-        } else {
-            permisos = 'acceso_basico';
+        if (tipoUsuario === 'DOCENTE') {
+            permisos = 'acceso_total';  // Supongamos que los docentes tienen acceso total
+        } else if (tipoUsuario === 'ALUMNO') {
+            permisos = 'acceso_basico'; // Los alumnos tienen acceso básico
         }
 
-        // Generar el token con permisos
+        // Generar el token
         let payload = {
             id_usuario: usuario.id_usuario,
             nombre: usuario.nombre,
@@ -73,20 +66,11 @@ const userLogin = async (req = request, res = response) => {
             tokenType: 'log-token'
         };
 
+        // console.log(payload);
+
         let token = await generarToken(payload); // Función para generar el token
 
-        /*
-        // Registrar el intento de inicio de sesión (fecha de actualización)
-        const updateLoginQuery = `
-            UPDATE Usuarios
-            SET fecha_creacion = NOW()  -- Actualizamos la fecha de creación si es necesario
-            WHERE id_usuario = ?`;
-            
-
-        await pool.execute(updateLoginQuery, [usuario.id_usuario]);
-        */
-
-        return res.status(200).json({ token });
+        return res.status(200).json({ token});
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: 'Error en el servidor, intenta de nuevo más tarde' });

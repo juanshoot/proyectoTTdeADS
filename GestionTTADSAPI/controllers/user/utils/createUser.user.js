@@ -59,14 +59,33 @@ const createAlumno = async (req, res, nombre, correo, contrasena, boleta) => {
 
         // Verificar si el correo o boleta ya existen
         const checkExistenceQuery = `
-            SELECT id_alumno
-            FROM Alumnos
-            WHERE nombre = ? OR correo = ? OR boleta = ?
+        SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
+        FROM Alumnos 
+        WHERE nombre = ? OR correo = ? OR boleta = ?
+        
+        UNION 
+
+        SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
+        FROM Docentes 
+        WHERE nombre = ? OR correo = ?
+        
         `;
-        const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, boletaStr]);
+        const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, boletaStr, nombreStr, correoStr]);
 
         if (existingUser.length > 0) {
-            return res.status(400).json({ message: 'El correo, nombre o la boleta ya están registrados' });
+        let mensajes = [];
+        for (const record of existingUser) {
+            if (record.tipo === 'DOCENTE') {
+                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Docentes.');
+                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Docentes.');
+                
+            } else if (record.tipo === 'ALUMNO') {
+                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Alumnos.');
+                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Alumnos.');
+                if (record.boleta === boletaStr) mensajes.push('La boleta ya existe en la tabla de Alumnos.');
+            }
+        }
+        return res.status(400).json({ message: mensajes.join(' ') });
         }
 
         // Hashear la contraseña
@@ -78,7 +97,7 @@ const createAlumno = async (req, res, nombre, correo, contrasena, boleta) => {
             INSERT INTO Alumnos (nombre, correo, contrasena, boleta, rol, nombre_equipo)
             VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, boletaStr, 'ESTUDIANTE', nombreStr]);
+        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, boletaStr, 'ESTUDIANTE', 'POR DEFINIR']);
 
         // Obtener el ID del usuario recién insertado
         const newUserId = result.insertId;
@@ -120,16 +139,33 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
             });
         }
 
-        // Verificar si el correo o clave_empleado ya existen
+        // Verificar si el correo, nombre o clave_empleado ya existen en Docentes o Alumnos
         const checkExistenceQuery = `
-            SELECT id_docente
-            FROM Docentes
-            WHERE nombre = ? OR correo = ? OR clave_empleado = ?
+          SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
+    FROM Docentes 
+    WHERE nombre = ? OR correo = ? OR clave_empleado = ? 
+    
+    UNION 
+    
+    SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
+    FROM Alumnos 
+    WHERE nombre = ? OR correo = ?
         `;
-        const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, claveEmpleadoStr]);
+        const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, claveEmpleadoStr, nombreStr, correoStr]);
 
         if (existingUser.length > 0) {
-            return res.status(400).json({ message: 'El correo, nombre o la clave_empleado ya están registrados' });
+        let mensajes = [];
+        for (const record of existingUser) {
+            if (record.tipo === 'DOCENTE') {
+                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Docentes.');
+                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Docentes.');
+                if (record.clave_empleado === claveEmpleadoStr) mensajes.push('La clave_empleado ya existe en la tabla de Docentes.');
+            } else if (record.tipo === 'ALUMNO') {
+                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Alumnos.');
+                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Alumnos.');
+            }
+        }
+        return res.status(400).json({ message: mensajes.join(' ') });
         }
 
         // Hashear la contraseña
@@ -141,7 +177,7 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
             INSERT INTO Docentes (nombre, correo, contrasena, clave_empleado, rol, nombre_equipo)
             VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, nombreStr]);
+        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, 'POR DEFINIR']);
 
         // Obtener el ID del usuario recién insertado
         const newUserId = result.insertId;

@@ -66,6 +66,8 @@ const userLogin = async (req = request, res = response) => {
             tokenType: 'log-token'
         };
 
+        console.log(payload);
+
         // console.log(payload);
 
         let token = await generarToken(payload); // Función para generar el token

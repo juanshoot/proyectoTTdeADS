@@ -272,20 +272,70 @@ VALUES ('ADMIN', '0123456789ABC');
 ALTER TABLE Permisos 
 MODIFY permisos VARCHAR(20) NOT NULL;
 
-INSERT INTO Permisos (rol, permisos) VALUES 
-('ADMIN', '0123456789ABC'),
-('CATT', '0123456789AC'),
-('SECRETARIO', '02'),
-('PROFESOR', '2C'),
-('DIRECTOR', '2C'),
-('SINODAL', 'BC'),
-('ESTUDIANTE', '0379'),
-('PRESIDENTE ACADEMIA', '012AC'),
-('TECNICO', '012AC');
+UPDATE Permisos 
+SET permisos = '0123456789ABCDEFG' 
+WHERE rol = 'ADMIN';
 
 UPDATE Permisos 
-SET permisos = '0379' 
+SET permisos = '0123456789ABCDFG' 
+WHERE rol = 'CATT';
+
+UPDATE Permisos 
+SET permisos = '0123456789ABCDFG' 
+WHERE rol = 'SECRETARIO';
+
+UPDATE Permisos 
+SET permisos = '13457CF' 
+WHERE rol = 'PROFESOR';
+
+UPDATE Permisos 
+SET permisos = '13457CF' 
+WHERE rol = 'DIRECTOR';
+
+UPDATE Permisos 
+SET permisos = '13457BCEF' 
+WHERE rol = 'SINODAL';
+
+UPDATE Permisos 
+SET permisos = '02456789ABC' 
 WHERE rol = 'ESTUDIANTE';
 
+UPDATE Permisos 
+SET permisos = '1357CF' 
+WHERE rol = 'PRESIDENTE ACADEMIA';
 
+UPDATE Permisos 
+SET permisos = '0123456789ABCDFG' 
+WHERE rol = 'TECNICO';
+
+
+SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
+FROM Docentes 
+WHERE nombre = ? OR correo = ? OR clave_empleado = ?
+
+UNION 
+
+SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
+FROM Alumnos 
+WHERE nombre = ? OR correo = ?
+
+DELETE FROM Docentes 
+WHERE 
+    (nombre = 'VANESSA CAMACHO ELISA' AND correo = 'vaneCam78@gmail.com' AND clave_empleado = '2022630557') OR
+    (nombre = 'VANESSA CAMACHO ORTEGA' AND correo = 'vaneCam7@gmail.com' AND clave_empleado = '2022630500') OR
+    (nombre = 'VANESSA CAMACHO ORTEGAZ' AND correo = 'vaneCam71@gmail.com' AND clave_empleado = '2022630501') OR
+    (nombre = 'VANESSA CAMACHO ORTEGAM' AND correo = 'vaneCam75@gmail.com' AND clave_empleado = '2022630502') OR
+    (nombre = 'VANESSA CAMACHO ORTEGAY' AND correo = 'vaneCam77@gmail.com' AND clave_empleado = '2022630503') OR
+    (nombre = 'VANESSA CAMACHO ORTEGAYMER' AND correo = 'vaneCam79@gmail.com' AND clave_empleado = '2022630508') OR
+    (nombre = 'VANESSA CAMACHO ORTEHYUIAD' AND correo = 'vaneCam89@gmail.com' AND clave_empleado = '2022630509') OR
+    (nombre = 'VANESSA CAMACHO ORTEHYUIADOGY' AND correo = 'vaneCam99@gmail.com' AND clave_empleado = '2022630510') OR
+    (nombre = 'VANESSA CAMACHO ORTEHYUIADOGYOP' AND correo = 'vaneCam87@gmail.com' AND clave_empleado = '2022630513') OR
+    (nombre = 'VANESSA ORTEGA' AND correo = 'vaneCam28@gmail.com' AND clave_empleado = '2022630566') OR
+    (nombre = 'MARTIN CORTES' AND correo = 'marcort00@gmail.com' AND clave_empleado = '2024999999');
+    
+    DELETE FROM Alumnos 
+WHERE 
+    (nombre = 'VANESSA CAMACHO ELISAM' AND correo = 'vaneCam28@gmail.com' AND boleta = '2022630504') OR
+    (nombre = 'VANESSA CAMACHO ELISAMO' AND correo = 'vaneCam29@gmail.com' AND boleta = '2022630505') OR
+    (nombre = 'VANESSA CAMACHO ALITA' AND correo = 'vaneCam99@gmail.com' AND boleta = '2022630545');
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------

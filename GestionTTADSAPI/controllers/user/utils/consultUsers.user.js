@@ -2,117 +2,112 @@ const { request, response } = require("express");
 const { getConnection } = require("../../../models/sqlConnection");
 
 const consultUsers = async (req = request, res = response) => {
-    const { rol, fecha, boleta, correo } = req.body; // Usamos el cuerpo de la solicitud
+    const { rol, fecha, boleta, correo, clave_empleado } = req.body; // Filtros de consulta
+    const { rol: userRole, correo: userCorreo } = req; // Rol y correo del usuario autenticado
 
     try {
+        // Verificar permisos de usuario
+        const pool = await getConnection();
+        const [rolePermissions] = await pool.execute('SELECT permisos FROM Permisos WHERE rol = ?', [userRole]);
 
-           // Validar si al menos un campo tiene un valor válido
-           if (!rol && !fecha && !boleta && !correo) {
-            return res.status(400).json({
-                message: "Por favor ingresa al menos un campo válido para consultar usuarios (rol y fecha de registro, boleta o correo)."
-            });
+        if (rolePermissions.length === 0) {
+            return res.status(403).json({ message: 'No tienes permisos para consultar usuarios.' });
         }
 
+        const permisos = rolePermissions[0].permisos;
+
+        // Verificar si tiene permiso para consultar alumnos (4), docentes (5) o todos (G)
+        const puedeConsultarAlumnos = permisos.includes('4');
+        const puedeConsultarDocentes = permisos.includes('5');
+        const puedeConsultarTodos = permisos.includes('G');
+
+        if (!puedeConsultarAlumnos && !puedeConsultarDocentes && !puedeConsultarTodos) {
+            return res.status(403).json({ message: 'No tienes permisos para consultar usuarios.' });
+        }
+
+        // Crear la consulta para buscar en Alumnos y Docentes
         let query = `
-            SELECT nombre, correo, rol, boleta, fecha_registro
-            FROM Usuarios
+            SELECT 'Alumno' AS tipo, a.boleta, a.nombre, a.correo, e.nombre_equipo, p.titulo AS nombre_protocolo, a.estado
+            FROM Alumnos a 
+            LEFT JOIN Equipos e ON a.id_equipo = e.id_equipo 
+            LEFT JOIN Protocolos p ON a.id_protocolo = p.id_protocolo
             WHERE 1=1
         `;
-        const queryParams = [];
 
-        // 1) Filtrar por rol y fecha
-        if (rol || fecha) {
-            // Validación del rol
-            const rolesPermitidos = ['ESTUDIANTE', 'SINODAL', 'CATT', 'DIRECTOR'];
-            if (rol && !rolesPermitidos.includes(rol.toUpperCase())) {
-                return res.status(400).json({
-                    message: `El rol ingresado es inválido. Solo se aceptan los roles: 'Estudiante', 'Sinodal', 'CATT', 'Director'`
-                });
-            }
-
-            if (rol) {
-                query += " AND rol = ?";
-                queryParams.push(rol.toUpperCase());
-            }
-
-            // Validación de la fecha
-            if (fecha) {
-                if (!/^\d{2}\/\d{2}$/.test(fecha)) {
-                    return res.status(400).json({
-                        message: "La fecha debe tener el formato MM/AA (Ejemplo: 23/02 para febrero de 2023)"
-                    });
-                }
-
-                const [anio, mes] = fecha.split('/').map(Number);
-                let anioBase = 2000 + anio; // Convertir el año a 4 dígitos
-                let anioBase2 = anioBase - 1;
-                let fechaInicio = null;
-                let fechaFin = null;
-
-                // Si el mes es 02 (enero-julio), el semestre es de enero a julio
-                if (mes === 2) {
-                    fechaInicio = `${anioBase}-01-01 00:00:00`; // Enero 1 del mismo año
-                    fechaFin = `${anioBase}-06-31 23:59:59`; // Julio 31 del mismo año
-                } 
-                // Si el mes es 01 (junio-diciembre), el semestre es de junio a diciembre
-                else if (mes === 1) {
-                    anioBase += 1; // Incrementamos el año en 1 para el semestre de junio-diciembre
-                    fechaInicio = `${anioBase2}-07-01 00:00:00`; // Junio 1 del siguiente año
-                    fechaFin = `${anioBase2}-12-31 23:59:59`; // Diciembre 31 del siguiente año
-                } else {
-                    return res.status(400).json({
-                        message: "El mes ingresado debe ser 01 (junio-diciembre) o 02 (enero-julio)"
-                    });
-                }
-
-                query += " AND fecha_registro BETWEEN ? AND ?";
-                queryParams.push(fechaInicio, fechaFin);
-            }
+        if (!puedeConsultarTodos) {
+            query += " AND (a.correo = ? OR e.lider = ?)";
         }
 
-        // 2) Filtrar por boleta
-        if (boleta) {
-            if (boleta.length !== 10 || isNaN(boleta)) {
-                return res.status(400).json({
-                    message: "La boleta debe ser un número de 10 dígitos"
-                });
-            }
+        const queryParams = [userCorreo, userCorreo];
 
-            query += " AND boleta = ?";
+        if (rol) {
+            query += " AND a.rol = ?";
+            queryParams.push(rol.toUpperCase());
+        }
+        if (boleta) {
+            query += " AND a.boleta = ?";
             queryParams.push(boleta);
         }
-
-        // 3) Filtrar por correo
         if (correo) {
-            if (correo.length > 100) {
-                return res.status(400).json({
-                    message: "El correo no debe ser mayor a 100 caracteres"
-                });
-            }
-
-            query += " AND correo = ?";
+            query += " AND a.correo = ?";
             queryParams.push(correo);
         }
-
-        // Ejecutar la consulta
-        const pool = await getConnection();
-        const [result] = await pool.execute(query, queryParams);
-
-        // Verificar si el resultado está vacío
-        if (result.length === 0) {
-            return res.status(404).json({
-                message: "No se encuentra este usuario, verifique sus datos o busque otro método"
-            });
+        if (fecha) {
+            const [anio, mes] = fecha.split('/');
+            const fechaInicio = `${2000 + parseInt(anio)}-${mes}-01 00:00:00`;
+            const fechaFin = `${2000 + parseInt(anio)}-${mes}-31 23:59:59`;
+            query += " AND a.fecha_registro BETWEEN ? AND ?";
+            queryParams.push(fechaInicio, fechaFin);
         }
 
-        // Convertir fecha_registro a formato DD/MM/YYYY
-        const usuarios = result.map(user => {
-            const fecha = new Date(user.fecha_registro);
-            const fechaFormateada = `${("0" + fecha.getDate()).slice(-2)}/${("0" + (fecha.getMonth() + 1)).slice(-2)}/${fecha.getFullYear()}`;
-            return { ...user, fecha_registro: fechaFormateada };
+        let queryDocentes = `
+            SELECT 'Docente' AS tipo, d.clave_empleado, d.nombre, d.correo, e.nombre_equipo, p.titulo AS nombre_protocolo, d.estado
+            FROM Docentes d 
+            LEFT JOIN Equipos e ON d.id_equipo = e.id_equipo 
+            LEFT JOIN Protocolos p ON d.id_protocolo = p.id_protocolo
+            WHERE 1=1
+        `;
+
+        if (!puedeConsultarTodos) {
+            queryDocentes += " AND (d.correo = ? OR e.lider = ?)";
+        }
+
+        const queryDocentesParams = [userCorreo, userCorreo];
+
+        if (rol) {
+            queryDocentes += " AND d.rol = ?";
+            queryDocentesParams.push(rol.toUpperCase());
+        }
+        if (clave_empleado) {
+            queryDocentes += " AND d.clave_empleado = ?";
+            queryDocentesParams.push(clave_empleado);
+        }
+        if (correo) {
+            queryDocentes += " AND d.correo = ?";
+            queryDocentesParams.push(correo);
+        }
+
+        const [alumnos] = await pool.execute(query, queryParams);
+        const [docentes] = await pool.execute(queryDocentes, queryDocentesParams);
+
+        const usuarios = alumnos.concat(docentes).map(user => {
+            return Object.fromEntries(
+                Object.entries(user).map(([key, value]) => [key, value ? value.trim() : value])
+            );
         });
 
-        // Responder con los usuarios
+        if (usuarios.length === 0) {
+            return res.status(404).json({ message: "No se encontraron usuarios con los criterios proporcionados." });
+        }
+
+        // Registrar la consulta en la tabla ABC
+        const registerChange = `
+            INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+            VALUES (?, ?, ?, ?)
+        `;
+        const changeDescription = `Consulta de usuarios realizada por ${userCorreo}`;
+        await pool.execute(registerChange, ['Consultas', 0, changeDescription, userCorreo]);
+
         return res.status(200).json({ usuarios });
     } catch (error) {
         console.error(error);

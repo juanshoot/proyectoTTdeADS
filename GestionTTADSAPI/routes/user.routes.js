@@ -3,6 +3,7 @@ const {userLogin} = require("../controllers/user");
 const {createUser} = require("../controllers/user");
 const {consultUsers} = require("../controllers/user");
 const {updateStudent} = require("../controllers/user");
+const {updateProf} = require("../controllers/user");
 const {deleteUser} = require("../controllers/user");
 
 
@@ -23,6 +24,7 @@ router.post('/inicioSesion', userLogin);
 router.post('/registroUsuario',createUser);
 router.post('/consultarUsuarios', [validarLogin],consultUsers);
 router.post('/actualizarEstudiante',[validarLogin], updateStudent);
+router.post('/actualizarDocentes',[validarLogin], updateProf);
 router.post('/darDeBajaUsuario',[validarLogin], deleteUser);
 
 //equipos

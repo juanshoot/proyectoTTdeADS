@@ -1,114 +1,168 @@
 const { request, response } = require("express");
 const { getConnection } = require("../../../models/sqlConnection"); // Conexión con la base de datos MySQL
+const jwt = require("jsonwebtoken");
 
 const createProtocol = async (req = request, res = response) => {
-    let { lider_equipo, titulo, area } = req.body;
+  const connection = await getConnection();
+  const token = req.header("log-token");
 
-    try {
-        // Convertir los valores a string y transformarlos a mayúsculas
-        lider_equipo = String(lider_equipo || '').trim().toUpperCase();
-        titulo = String(titulo || '').trim().toUpperCase();
-        area = String(area || '').trim().toUpperCase();
+  if (!token) {
+    return res.status(401).json({ message: "Por favor, inicie sesión." });
+  }
 
-        // Validar campos requeridos
-        if (!lider_equipo || !titulo || !area) {
-            return res.status(400).json({ message: "Todos los campos son obligatorios." });
-        }
+  try {
+    // Decodificar el token para obtener la boleta o clave del usuario
+    const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa');
+    const usuarioBoleta = decoded.boleta || decoded.clave_empleado;
 
-        // Validaciones de longitud
-        if (lider_equipo.length !== 10) {
-            return res.status(400).json({ message: "La boleta del líder debe ser exactamente de 10 caracteres." });
-        }
+    // Verificar permisos del usuario desde la tabla Permisos
+    const [permisos] = await connection.query(
+      "SELECT permisos FROM Permisos WHERE rol = (SELECT rol FROM Alumnos WHERE boleta = ? UNION SELECT rol FROM Docentes WHERE clave_empleado = ?)",
+      [usuarioBoleta, usuarioBoleta]
+    );
 
-        if (titulo.length > 170) {
-            return res.status(400).json({ message: "El título no debe superar los 170 caracteres." });
-        }
-
-        if (area.length > 100) {
-            return res.status(400).json({ message: "El área no debe superar los 100 caracteres." });
-        }
-
-        const pool = await getConnection();
-
-        // Verificar que el líder esté registrado como líder de un equipo
-        const queryGetLeaderTeam = `
-            SELECT id_equipo 
-            FROM Equipos 
-            WHERE lider = ?;
-        `;
-        const [leaderTeam] = await pool.execute(queryGetLeaderTeam, [lider_equipo]);
-
-        if (leaderTeam.length === 0) {
-            return res.status(404).json({ message: "El líder no está registrado en ningún equipo." });
-        }
-
-        const id_equipo = leaderTeam[0].id_equipo;
-
-        // Verificar que el líder no tenga ya un protocolo
-        const queryCheckLeaderProtocols = `
-            SELECT id_protocolo 
-            FROM Protocolos 
-            WHERE lider = ?;
-        `;
-        const [leaderProtocols] = await pool.execute(queryCheckLeaderProtocols, [lider_equipo]);
-
-        if (leaderProtocols.length > 0) {
-            return res.status(400).json({ message: "El líder ya tiene un protocolo asignado." });
-        }
-
-        // Verificar que el título no exista en protocolos ni equipos
-        const queryCheckTitles = `
-            SELECT titulo 
-            FROM Protocolos 
-            WHERE titulo = ?
-            UNION
-            SELECT titulo 
-            FROM Equipos 
-            WHERE titulo = ?;
-        `;
-        const [existingTitles] = await pool.execute(queryCheckTitles, [titulo, titulo]);
-
-        if (existingTitles.length > 0) {
-            return res.status(400).json({ message: "El título ya está registrado en otro protocolo o equipo." });
-        }
-
-        // Actualizar el área en la tabla de equipos
-        const queryUpdateTeamArea = `
-            UPDATE Equipos 
-            SET area = ? 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryUpdateTeamArea, [area, id_equipo]);
-
-        // Insertar el nuevo protocolo en la tabla Protocolos
-        const queryInsertProtocol = `
-            INSERT INTO Protocolos (id_equipo, lider, titulo, area, etapa, director, sinodal, catt, comentarios) 
-            VALUES (?, ?, ?, ?, 'Registro', 'Por Asignar', 'Por Asignar', 'Por Asignar', 'Por Asignar');
-        `;
-        await pool.execute(queryInsertProtocol, [id_equipo, lider_equipo, titulo, area]);
-
-        // Actualizar el título en la tabla de equipos
-        const queryUpdateTeamTitle = `
-            UPDATE Equipos 
-            SET titulo = ? 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryUpdateTeamTitle, [titulo, id_equipo]);
-
-        // Respuesta exitosa
-        return res.status(201).json({ 
-            message: "Protocolo creado correctamente.",
-            protocolo: {
-                lider_equipo,
-                titulo,
-                area,
-                id_equipo
-            }
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Error en el servidor, intenta de nuevo más tarde." });
+    if (!permisos.length) {
+      return res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
     }
+
+    const permisosUsuario = permisos[0].permisos;
+
+    // Verificar si el usuario tiene el permiso 'A' o 'G' para crear protocolos
+    if (!permisosUsuario.includes('A') && !permisosUsuario.includes('G')) {
+      return res.status(403).json({ message: "No tienes permisos para crear un protocolo." });
+    }
+
+    const { lider_equipo, titulo_protocolo, academia } = req.body;
+
+    // Validar los parámetros necesarios
+    if (typeof titulo_protocolo !== 'string' || typeof academia !== 'string') {
+      return res.status(400).json({ message: "El título del protocolo y la academia deben ser cadenas de texto." });
+    }
+
+    const academiaUpper = academia.toUpperCase();
+
+    // Verificar que la academia exista
+    const [academiaExistente] = await connection.query(
+      "SELECT * FROM Academia WHERE academia = ?",
+      [academiaUpper]
+    );
+
+    if (!academiaExistente.length) {
+      return res.status(400).json({ message: "La academia ingresada no existe." });
+    }
+
+    // Verificar si el equipo con el líder existe y está activo
+    const [equipo] = await connection.query(
+      "SELECT * FROM Equipos WHERE lider = ? AND estado = 'A'",
+      [lider_equipo]
+    );
+
+    if (!equipo.length) {
+      return res.status(404).json({ message: "El lider que ingresaste no se encuentra en un equipo activo." });
+    }
+
+    // Si el usuario tiene permiso 'A', verificar si es el líder del equipo
+    if (permisosUsuario.includes('A')) {
+      if (equipo[0].lider !== usuarioBoleta) {
+        return res.status(403).json({ message: "No eres el líder del equipo, no puedes crear el protocolo." });
+      }
+    }
+
+    // Si el usuario tiene permiso 'G', no es necesario ser parte del equipo
+    if (permisosUsuario.includes('G')) {
+      console.log("Permiso 'G' detectado, permitiendo creación del protocolo.");
+    }
+
+     // Verificar si ya existe un protocolo con el mismo equipo, líder o título
+     const [protocolosExistentes] = await connection.query(
+        `SELECT * FROM Protocolos WHERE id_equipo = ? OR lider = ? OR titulo = ? AND estatus = 'A'`,
+        [equipo[0].id_equipo, lider_equipo, titulo_protocolo]
+      );
+  
+      if (protocolosExistentes.length > 0) {
+        return res.status(400).json({
+          message: "Ya existe un protocolo con el mismo equipo, líder o título. No se puede crear el protocolo."
+        });
+      }
+
+    // Crear el protocolo en la base de datos
+    const [resultadoProtocolo] = await connection.query(
+      `INSERT INTO Protocolos (id_equipo, lider, titulo, academia, director, director_2, sinodal_1, sinodal_2, sinodal_3) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        equipo[0].id_equipo, 
+        lider_equipo, 
+        titulo_protocolo, 
+        academiaUpper, 
+        equipo[0].director, 
+        equipo[0].director_2, 
+        equipo[0].sinodal_1, 
+        equipo[0].sinodal_2, 
+        equipo[0].sinodal_3
+      ]
+    );
+
+    const idProtocolo = resultadoProtocolo.insertId;
+
+
+    await connection.query(
+        `UPDATE Equipos SET id_protocolo = ? WHERE lider = ?`,
+        [idProtocolo, lider_equipo]
+      );
+
+     // Actualizar id_protocolo en la tabla Equipos
+     await connection.query(
+        `UPDATE Equipos SET id_protocolo = ? WHERE lider = ?`,
+        [idProtocolo, lider_equipo]
+      );
+  
+      // Actualizar id_protocolo en la tabla Alumnos para todos los alumnos del equipo del líder, incluyendo al líder mismo
+      await connection.query(
+        `UPDATE Alumnos 
+         SET id_protocolo = ? 
+         WHERE id_equipo = ?`,
+        [idProtocolo, equipo[0].id_equipo]
+      );
+    
+      // Actualizar id_protocolo en la tabla Docentes para todos los docentes del equipo del líder, incluyendo al líder mismo
+      await connection.query(
+        `UPDATE Docentes 
+         SET id_protocolo = ? 
+         WHERE id_equipo = ?`,
+        [idProtocolo, equipo[0].id_equipo]
+      );
+
+    // Registrar cambio en la tabla ABC
+    await connection.query(
+        `INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+         VALUES (?, ?, ?, ?)`,
+        ['Protocolos', idProtocolo, 'Creación del protocolo ' + titulo_protocolo, usuarioBoleta]
+      );
+
+ 
+
+    // Responder al cliente con éxito
+    res.status(201).json({
+      message: "Protocolo creado con éxito",
+      protocolo: {
+        id_protocolo: idProtocolo,
+        titulo_protocolo,
+        academia: academiaUpper,
+        lider_equipo,
+        director: equipo[0].director,
+        director_2: equipo[0].director_2,
+        sinodal_1: equipo[0].sinodal_1,
+        sinodal_2: equipo[0].sinodal_2,
+        sinodal_3: equipo[0].sinodal_3
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  } finally {
+    if (connection) connection.release();
+  }
 };
 
 module.exports = { createProtocol };

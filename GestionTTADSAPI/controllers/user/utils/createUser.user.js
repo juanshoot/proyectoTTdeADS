@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs"); // Usamos bcrypt para hashear contraseñas
 
 // Función para registrar un usuario
 const createUser = async (req = request, res = response) => {
-    const { correo, contrasena, boleta, nombre, clave_empleado, rol } = req.body;
+    const { correo, contrasena, boleta, nombre, clave_empleado, rol, academia } = req.body;
     const { rol: userRole, nombre: userName } = req; // El rol del usuario que hace la petición, que viene del token
 
     try {
@@ -30,7 +30,7 @@ const createUser = async (req = request, res = response) => {
         
         // Si se ingresó clave_empleado y rol, el registro es para "Docentes"
         else if (clave_empleado && rol) {
-            return await createDocente(req, res, nombre, correo, contrasena, clave_empleado, rol);
+            return await createDocente(req, res, nombre, correo, contrasena, clave_empleado, rol, academia);
         } 
 
         // Si no se cumple ninguna de las condiciones, retornamos un error
@@ -120,8 +120,10 @@ const createAlumno = async (req, res, nombre, correo, contrasena, boleta) => {
 };
 
 // Función para registrar un Docente
-const createDocente = async (req, res, nombre, correo, contrasena, clave_empleado, rol) => {
+const createDocente = async (req, res, nombre, correo, contrasena, clave_empleado, rol, academia) => {
+
     try {
+
         const pool = await getConnection();
 
         // Convertir todos los valores a string y sanitizar entrada
@@ -130,6 +132,7 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
         const contrasenaStr = String(contrasena || '').trim();
         const claveEmpleadoStr = String(clave_empleado || '').trim();
         const rolStr = String(rol || '').trim().toUpperCase();
+        const academiaStr = String(academia || '').trim().toUpperCase();
 
         // Validación de roles en la tabla Roles
         const [roles] = await pool.execute('SELECT * FROM Roles WHERE rol = ?', [rolStr]);
@@ -138,34 +141,41 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
                 message: `El rol ingresado ${rolStr} no existe en la tabla Roles. Asegúrese de usar un rol válido.`
             });
         }
+        console.log(academia);
+
+        // Verificar si la academia ingresada existe en la tabla Academia
+        const [academiaExists] = await pool.execute('SELECT * FROM Academia WHERE UPPER(academia) = ?', [academiaStr]);
+        if (academiaExists.length === 0) {
+            return res.status(400).json({ message: `La academia ingresada '${academiaStr}' no existe en la tabla de Academias.` });
+        }
 
         // Verificar si el correo, nombre o clave_empleado ya existen en Docentes o Alumnos
         const checkExistenceQuery = `
-          SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
-    FROM Docentes 
-    WHERE nombre = ? OR correo = ? OR clave_empleado = ? 
-    
-    UNION 
-    
-    SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
-    FROM Alumnos 
-    WHERE nombre = ? OR correo = ?
+            SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
+            FROM Docentes 
+            WHERE nombre = ? OR correo = ? OR clave_empleado = ? 
+            
+            UNION 
+            
+            SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
+            FROM Alumnos 
+            WHERE nombre = ? OR correo = ?
         `;
         const [existingUser] = await pool.execute(checkExistenceQuery, [nombreStr, correoStr, claveEmpleadoStr, nombreStr, correoStr]);
 
         if (existingUser.length > 0) {
-        let mensajes = [];
-        for (const record of existingUser) {
-            if (record.tipo === 'DOCENTE') {
-                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Docentes.');
-                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Docentes.');
-                if (record.clave_empleado === claveEmpleadoStr) mensajes.push('La clave_empleado ya existe en la tabla de Docentes.');
-            } else if (record.tipo === 'ALUMNO') {
-                if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Alumnos.');
-                if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Alumnos.');
+            let mensajes = [];
+            for (const record of existingUser) {
+                if (record.tipo === 'DOCENTE') {
+                    if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Docentes.');
+                    if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Docentes.');
+                    if (record.clave_empleado === claveEmpleadoStr) mensajes.push('La clave_empleado ya existe en la tabla de Docentes.');
+                } else if (record.tipo === 'ALUMNO') {
+                    if (record.nombre === nombreStr) mensajes.push('El nombre ya existe en la tabla de Alumnos.');
+                    if (record.correo === correoStr) mensajes.push('El correo ya existe en la tabla de Alumnos.');
+                }
             }
-        }
-        return res.status(400).json({ message: mensajes.join(' ') });
+            return res.status(400).json({ message: mensajes.join(' ') });
         }
 
         // Hashear la contraseña
@@ -174,10 +184,10 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
 
         // Insertar en la tabla Docentes
         const insertQuery = `
-            INSERT INTO Docentes (nombre, correo, contrasena, clave_empleado, rol, nombre_equipo)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO Docentes (nombre, correo, contrasena, clave_empleado, rol, nombre_equipo, academia)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, 'POR DEFINIR']);
+        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, 'POR DEFINIR', academiaStr]);
 
         // Obtener el ID del usuario recién insertado
         const newUserId = result.insertId;

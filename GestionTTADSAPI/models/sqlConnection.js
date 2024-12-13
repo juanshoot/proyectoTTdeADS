@@ -1,33 +1,30 @@
 require('dotenv').config({ path: '../.env' }); 
-const mysql = require('mysql2/promise'); // se manejan funciones asincronas por eso se ocupa el promise 
+const mysql = require('mysql2/promise'); // Se manejan funciones asincrónicas, por eso se usa promise
 
-console.log(process.env.DB_SERVER);
-console.log(process.env.DB_USER);
-console.log(process.env.DB_PASSWORD);
-console.log(process.env.DB_NAME);
-
+// Configuración de la conexión
 const connectionSettings = {
     host: process.env.DB_SERVER,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: 3306 , //? Cambia esto si tu MySQL usa otra ruta pero comenta la otra, no borrar
+    port: 3306, 
     waitForConnections: true,
     connectionLimit: 10, // Número máximo de conexiones en el pool
     queueLimit: 0 // Sin límite para la cola de conexiones
 };
 
+// Crear el pool de conexiones UNA SOLA VEZ
+const pool = mysql.createPool(connectionSettings); 
 
 const getConnection = async () => {
     try {
-        const pool = mysql.createPool(connectionSettings); // Se usa un pool de conexiones
-        const connection = await pool.getConnection(); // Se obtiene una conexión del pool
-        console.log('Conexión exitosa a la base de datos'); // Mensaje de éxito
-        connection.release(); // Liberar la conexión después de usarla
-        return pool; // Devuelve el pool para reutilizar
+        // Obtener una conexión desde el pool
+        const connection = await pool.getConnection();
+        console.log('Conexión exitosa a la base de datos'); 
+        return connection; // Devolver la conexión sin liberarla
     } catch (error) {
         console.error('Error al conectar con la base de datos:', error.message);
-        throw error; // Manejo de errores de conexión
+        throw error; // Lanza el error para que el controlador lo capture
     }
 };
 

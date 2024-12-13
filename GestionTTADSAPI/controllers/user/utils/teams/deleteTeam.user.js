@@ -1,81 +1,112 @@
 const { request, response } = require("express");
 const { getConnection } = require("../../../../models/sqlConnection");
+const jwt = require("jsonwebtoken");
 
 const deleteTeam = async (req = request, res = response) => {
+  const connection = await getConnection();
+  const token = req.header("log-token");
+
+  if (!token) {
+    return res.status(401).json({ message: "Por favor, inicie sesión" });
+  }
+
+  try {
+    // Decodificar token para obtener la boleta o clave de usuario
+    const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa');
+    const usuarioBoleta = decoded.boleta || decoded.clave_empleado;
+
+    console.log(usuarioBoleta);
+
+    // Obtener los permisos del usuario desde la tabla Permisos
+    const [permisos] = await connection.query(
+      "SELECT permisos FROM Permisos WHERE rol = (SELECT rol FROM Alumnos WHERE boleta = ? UNION SELECT rol FROM Docentes WHERE clave_empleado = ?)",
+      [usuarioBoleta, usuarioBoleta]
+    );
+
+    if (!permisos.length) {
+      return res.status(403).json({ message: "No tienes permisos para realizar esta acción" });
+    }
+
+    const permisosUsuario = permisos[0].permisos;
+
+    console.log(permisosUsuario);
+
+    // Verificar si el usuario tiene permiso '8' o 'G'
+    if (!permisosUsuario.includes('8') && !permisosUsuario.includes('G')) {
+      return res.status(403).json({ message: "No tienes permisos para borrar equipos" });
+    }
+
     const { lider, nombre_equipo } = req.body;
 
-    try {
-        // Validaciones iniciales
-        if (!lider || !nombre_equipo) {
-            return res.status(400).json({ message: "La boleta del líder y el nombre del equipo son obligatorios." });
-        }
-
-        // Convertir a string y sanitizar entrada
-        const liderStr = String(lider || "").trim();
-        const nombreEquipoStr = String(nombre_equipo || "").trim().toUpperCase();
-
-        // Validaciones específicas
-        if (liderStr.length !== 10 || isNaN(liderStr)) {
-            return res.status(400).json({ message: "La boleta del líder debe ser un número de 10 dígitos." });
-        }
-
-        if (nombreEquipoStr.length === 0) {
-            return res.status(400).json({ message: "El nombre del equipo no puede estar vacío." });
-        }
-
-        const pool = await getConnection();
-
-        // Verificar que el equipo exista con el líder y el nombre proporcionados
-        const queryCheckTeam = `
-            SELECT id_equipo 
-            FROM Equipos 
-            WHERE lider = ? AND nombre_equipo = ?;
-        `;
-        const [team] = await pool.execute(queryCheckTeam, [liderStr, nombreEquipoStr]);
-
-        if (team.length === 0) {
-            return res.status(404).json({
-                message: "No se encontró un equipo con la boleta del líder y el nombre del equipo proporcionados."
-            });
-        }
-
-        const id_equipo = team[0].id_equipo;
-
-        // Actualizar a los usuarios asociados al equipo para quitarles la referencia al equipo eliminado
-        const queryUpdateUsers = `
-            UPDATE Usuarios 
-            SET id_equipo = NULL, nombre_equipo = NULL 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryUpdateUsers, [id_equipo]);
-
-        // Eliminar protocolos asociados al equipo
-        const queryDeleteProtocols = `
-            DELETE FROM Protocolos 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryDeleteProtocols, [id_equipo]);
-
-        // Eliminar el equipo de la tabla Equipos
-        const queryDeleteTeam = `
-            DELETE FROM Equipos 
-            WHERE id_equipo = ?;
-        `;
-        await pool.execute(queryDeleteTeam, [id_equipo]);
-
-        // Respuesta exitosa
-        return res.status(200).json({
-            message: "Equipo eliminado correctamente.",
-            equipo_eliminado: {
-                id_equipo,
-                nombre_equipo: nombreEquipoStr,
-                lider: liderStr
-            }
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Error en el servidor, intenta de nuevo más tarde." });
+    // Validar que los parámetros recibidos sean cadenas
+    if (typeof lider !== 'string' || typeof nombre_equipo !== 'string') {
+      return res.status(400).json({ message: "Los campos 'lider' y 'nombre_equipo' deben ser cadenas" });
     }
+
+    const nombreEquipo = nombre_equipo.toUpperCase();
+
+    // Verificar que el equipo exista
+    const [equipo] = await connection.query(
+      "SELECT * FROM Equipos WHERE nombre_equipo = ? AND estado = 'A'",
+      [nombreEquipo]
+    );
+
+    if (!equipo.length) {
+      return res.status(400).json({ message: "El equipo no existe" });
+    }
+
+    // Verificar que el usuario sea el líder del equipo si no tiene permiso 'G'
+    if (!permisosUsuario.includes('G')) {
+      if (equipo[0].lider !== lider) {
+        return res.status(403).json({ message: "Solo el líder del equipo puede borrarlo" });
+      }
+    }
+
+    const idEquipo = equipo[0].id_equipo;
+
+    // Cambiar el estado de los alumnos y docentes asociados al equipo de 'A' a 'B'
+    await connection.query(
+      "UPDATE Alumnos SET id_equipo = NULL, nombre_equipo = NULL WHERE id_equipo = ?",
+      [idEquipo]
+    );
+
+    await connection.query(
+      "UPDATE Docentes SET id_equipo = NULL WHERE id_equipo = ?",
+      [idEquipo]
+    );
+
+   // Registrar en la tabla Equipos el cambio de estado a "B" (dado de baja)
+   const usuarioEliminacion = usuarioBoleta;  // Puedes usar la boleta del usuario
+   const fechaEliminacion = new Date();
+
+   await connection.query(
+     "UPDATE Equipos SET estado = 'B', fecha_eliminacion = ?, usuario_eliminacion = ? WHERE id_equipo = ?",
+     [fechaEliminacion, usuarioEliminacion, idEquipo]
+   );
+
+    // Registrar cambio en la tabla ABC
+    await connection.query(
+      `INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+       VALUES (?, ?, ?, ?)`,
+      ['Equipos', idEquipo, 'Eliminación de equipo ' + nombreEquipo, usuarioBoleta]
+    );
+
+    res.status(200).json({
+      message: "Equipo eliminado con éxito",
+      equipo: {
+        id_equipo: idEquipo,
+        nombre_equipo: nombreEquipo
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  } finally {
+    if (connection) connection.release();
+  }
 };
 
-module.exports = { deleteTeam };
+module.exports = {
+  deleteTeam
+};

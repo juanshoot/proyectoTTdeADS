@@ -21,11 +21,11 @@ const userLogin = async (req = request, res = response) => {
 
         // Consulta SQL adaptada para buscar en ambas tablas: Alumnos y Docentes
         const loginUsuarioQuery = `
-            SELECT id_alumno AS id_usuario, nombre, correo, contrasena, rol, 'ALUMNO' AS tipo
+            SELECT id_alumno AS id_usuario, nombre, correo, boleta, contrasena, rol, 'ALUMNO' AS tipo
             FROM Alumnos
             WHERE correo = ?
             UNION
-            SELECT id_docente AS id_usuario, nombre, correo, contrasena, rol, 'DOCENTE' AS tipo
+            SELECT id_docente AS id_usuario, nombre, correo, clave_empleado, contrasena, rol, 'DOCENTE' AS tipo
             FROM Docentes
             WHERE correo = ?
         `;
@@ -63,6 +63,8 @@ const userLogin = async (req = request, res = response) => {
             nombre: usuario.nombre,
             correo: usuario.correo,
             rol: usuario.rol,
+            boleta: usuario.boleta,
+            clave_empleado:usuario.clave_empleado,
             tokenType: 'log-token'
         };
 

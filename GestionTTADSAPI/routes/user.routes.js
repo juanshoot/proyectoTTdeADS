@@ -28,10 +28,10 @@ router.post('/actualizarDocentes',[validarLogin], updateProf);
 router.post('/darDeBajaUsuario',[validarLogin], deleteUser);
 
 //equipos
-router.post('/nuevoEquipo', newTeam);
-router.post('/consultarEquipos', consultTeam);
-router.post('/darDeBajaEquipo', deleteTeam);
-router.post('/actualizarEquipo', updateTeam);
+router.post('/nuevoEquipo', [validarLogin],newTeam);
+router.post('/consultarEquipos',[validarLogin], consultTeam);
+router.post('/darDeBajaEquipo',[validarLogin], deleteTeam);
+router.post('/actualizarEquipo', [validarLogin],updateTeam);
 
 
 

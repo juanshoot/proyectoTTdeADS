@@ -42,10 +42,9 @@ CREATE TABLE Roles (
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de equipos
 CREATE TABLE Equipos (
     id_equipo INT AUTO_INCREMENT PRIMARY KEY,
-	id_protocolo INT, -- Protocolo asociado al equipo
+    id_protocolo INT, -- Protocolo asociado al equipo
     lider VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el líder del equipo
     nombre_equipo VARCHAR(150) NOT NULL,
     titulo VARCHAR(255),
@@ -55,7 +54,8 @@ CREATE TABLE Equipos (
     sinodal_2 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
     sinodal_3 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
     academia VARCHAR(100),
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado VARCHAR(10) DEFAULT 'A' -- Nueva columna 'estado'
 );
 
 -- Tabla de protocolos
@@ -246,7 +246,7 @@ SELECT * FROM ABC;
 DELETE FROM Equipos WHERE id_equipo = 7;
 
 
-
+DELETE FROM Protocolos;
 
 
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------
@@ -333,9 +333,60 @@ WHERE
     (nombre = 'VANESSA ORTEGA' AND correo = 'vaneCam28@gmail.com' AND clave_empleado = '2022630566') OR
     (nombre = 'MARTIN CORTES' AND correo = 'marcort00@gmail.com' AND clave_empleado = '2024999999');
     
-    DELETE FROM Alumnos 
+DELETE FROM Alumnos 
 WHERE 
     (nombre = 'VANESSA CAMACHO ELISAM' AND correo = 'vaneCam28@gmail.com' AND boleta = '2022630504') OR
     (nombre = 'VANESSA CAMACHO ELISAMO' AND correo = 'vaneCam29@gmail.com' AND boleta = '2022630505') OR
     (nombre = 'VANESSA CAMACHO ALITA' AND correo = 'vaneCam99@gmail.com' AND boleta = '2022630545');
+    
+
+
+DELETE FROM Academia 
+WHERE 
+    (id_academia = 'BASICAS' AND academia = 'BASICAS') OR
+    (id_academia = 'BASICAS' AND academia = 'BASICAS') 
+    
+    
+    ALTER TABLE Equipos MODIFY COLUMN sinodal_1 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
+     ALTER TABLE Equipos MODIFY COLUMN sinodal_2 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
+          ALTER TABLE Equipos MODIFY COLUMN sinodal_3 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
+          ALTER TABLE Equipos MODIFY COLUMN director_2 VARCHAR(100) NOT NULL DEFAULT 'NO TIENE';
+    
+    
+    -- 1. Eliminar los estudiantes del equipo (actualizar su id_equipo)
+UPDATE Alumnos 
+SET id_equipo = NULL, nombre_equipo = NULL 
+WHERE nombre_equipo = 'REAL MADRID';
+
+-- 2. Eliminar la relación del director y director_2 con el equipo
+UPDATE Docentes 
+SET id_equipo = NULL 
+WHERE clave_empleado = '0000000002';
+
+-- 3. Eliminar el equipo de la tabla Equipos
+DELETE FROM Equipos 
+WHERE nombre_equipo = 'REAL MADRID' AND titulo = 'CAMPEONES 2025';
+    
+    
+    ALTER TABLE Equipos
+ADD COLUMN estado VARCHAR(10) DEFAULT 'A';
+
+
+    ALTER TABLE Protocolos
+ADD COLUMN estatus VARCHAR(10) DEFAULT 'A';
+
+UPDATE Protocolos
+SET estatus = 'A';
+
+UPDATE Equipos
+SET estado = 'A';
+
+UPDATE Alumnos
+SET estado = 'A';
+
+ALTER TABLE Equipos
+ADD COLUMN fecha_eliminacion DATETIME NULL,
+ADD COLUMN usuario_eliminacion VARCHAR(255) NULL;
+
+
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------

@@ -1,122 +1,143 @@
 const { request, response } = require("express");
-const { getConnection } = require("../../../models/sqlConnection"); // Conexión con la base de datos MySQL
-
+const jwt = require('jsonwebtoken');
+const { getConnection } = require("../../../models/sqlConnection");
 
 const consultProtocol = async (req = request, res = response) => {
-    let { nombre_equipo, fecha, boleta_lider, titulo_protocolo } = req.body;
+    const { nombre_equipo, fecha, boleta_lider, titulo_protocolo } = req.body; // Filtros de búsqueda
+    const token = req.header("log-token");
+    
+    if (!token) {
+        return res.status(401).json({ message: 'Token no proporcionado' });
+    }
 
     try {
-        // Convertir los valores a string y transformarlos a mayúsculas
-        nombre_equipo = nombre_equipo ? String(nombre_equipo).trim().toUpperCase() : null;
-        fecha = fecha ? String(fecha).trim() : null;
-        boleta_lider = boleta_lider ? String(boleta_lider).trim() : null;
-        titulo_protocolo = titulo_protocolo ? String(titulo_protocolo).trim().toUpperCase() : null;
+        // **1️⃣ Decodificar token para obtener la boleta o clave de usuario**
+        const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa'); // Usa el secreto correcto para verificar el token
+        const usuarioBoleta = decoded.boleta || decoded.clave_empleado; // Usamos boleta o clave_empleado
 
-        // Validaciones de entrada
-        if (fecha && !/^\d{2}\/\d{2}$/.test(fecha)) {
-            return res.status(400).json({ message: "La fecha debe tener el formato MM/AA (Ejemplo: 25/01 para enero-junio de 2025)." });
+        // Verificar que se haya obtenido un identificador válido
+        if (!usuarioBoleta) {
+            return res.status(400).json({ message: 'No se pudo obtener un identificador válido del token' });
         }
 
-        if (boleta_lider && boleta_lider.length !== 10) {
-            return res.status(400).json({ message: "La boleta del líder debe ser exactamente de 10 caracteres." });
-        }
+        const { rol: userRole } = decoded; // Obtener el rol del usuario desde el token
 
+        // **2️⃣ Verificar permisos de usuario**
         const pool = await getConnection();
+        const [rolePermissions] = await pool.execute('SELECT permisos FROM Permisos WHERE rol = ?', [userRole]);
 
-        // Construcción dinámica de la consulta SQL
+        if (rolePermissions.length === 0) {
+            return res.status(403).json({ message: 'No tienes permisos para consultar protocolos.' });
+        }
+
+        const permisos = rolePermissions[0].permisos;
+        const puedeConsultarPropioEquipo = permisos.includes('C'); // Permiso para consultar solo su protocolo
+        const puedeConsultarTodosProtocolos = permisos.includes('G'); // Permiso para consultar todos los protocolos
+
+        if (!puedeConsultarPropioEquipo && !puedeConsultarTodosProtocolos) {
+            return res.status(403).json({ message: 'No tienes permisos para consultar protocolos.' });
+        }
+
+        // **3️⃣ Construcción de la consulta**
         let query = `
             SELECT 
-                p.titulo AS titulo_protocolo,
-                p.lider AS boleta_lider,
-                p.area,
+                p.id_protocolo,
+                p.id_equipo,
+                p.lider,
+                p.titulo,
                 p.etapa,
+                p.academia,
                 p.director,
-                p.sinodal,
-                p.catt,
+                p.director_2,
+                p.sinodal_1,
+                p.sinodal_2,
+                p.sinodal_3,
                 p.calificacion,
+                p.comentarios,
                 p.estado,
                 p.fecha_registro,
-                e.nombre_equipo
+                p.estatus
             FROM Protocolos p
-            LEFT JOIN Equipos e ON p.id_equipo = e.id_equipo
             WHERE 1=1
         `;
+
         const queryParams = [];
 
-        // Filtros opcionales
+        // Si no tiene permiso 'G', solo puede consultar los protocolos donde sea parte
+        if (!puedeConsultarTodosProtocolos) {
+            query += `
+                AND (
+                    p.lider = ? OR 
+                    p.director = ? OR 
+                    p.director_2 = ? OR 
+                    p.sinodal_1 = ? OR 
+                    p.sinodal_2 = ? OR 
+                    p.sinodal_3 = ?
+                )
+            `;
+            // Usamos el identificador del usuario (boleta o clave)
+            queryParams.push(usuarioBoleta, usuarioBoleta, usuarioBoleta, usuarioBoleta, usuarioBoleta, usuarioBoleta);
+        }
+
+        // **Aplicar los filtros proporcionados**
         if (nombre_equipo) {
-            query += " AND e.nombre_equipo = ?";
-            queryParams.push(nombre_equipo);
+            query += " AND p.id_equipo IN (SELECT id_equipo FROM Equipos WHERE nombre_equipo LIKE ?)";
+            queryParams.push(`%${nombre_equipo}%`);
         }
 
         if (fecha) {
-            if (!/^\d{2}\/\d{2}$/.test(fecha)) {
-                return res.status(400).json({
-                    message: "La fecha debe tener el formato MM/AA (Ejemplo: 23/02 para febrero de 2023)"
-                });
-            }
-
-            const [anio, mes] = fecha.split('/').map(Number);
-            let anioBase = 2000 + anio; // Convertir el año a 4 dígitos
-            let anioBase2 = anioBase - 1;
-            let fechaInicio = null;
-            let fechaFin = null;
-
-            // Si el mes es 02 (enero-julio), el semestre es de enero a julio
-            if (mes === 2) {
-                fechaInicio = `${anioBase}-01-01 00:00:00`; // Enero 1 del mismo año
-                fechaFin = `${anioBase}-06-31 23:59:59`; // Julio 31 del mismo año
-            } 
-            // Si el mes es 01 (junio-diciembre), el semestre es de junio a diciembre
-            else if (mes === 1) {
-                anioBase += 1; // Incrementamos el año en 1 para el semestre de junio-diciembre
-                fechaInicio = `${anioBase2}-07-01 00:00:00`; // Junio 1 del siguiente año
-                fechaFin = `${anioBase2}-12-31 23:59:59`; // Diciembre 31 del siguiente año
-            } else {
-                return res.status(400).json({
-                    message: "El mes ingresado debe ser 01 (junio-diciembre) o 02 (enero-julio)"
-                });
-            }
-
-            query += " AND p.fecha_registro BETWEEN  ? AND ?";
+            const [mes, anio] = fecha.split('/');
+            const fechaInicio = `${2000 + parseInt(anio)}-${mes}-01 00:00:00`;
+            const fechaFin = `${2000 + parseInt(anio)}-${mes}-31 23:59:59`;
+            query += " AND p.fecha_registro BETWEEN ? AND ?";
             queryParams.push(fechaInicio, fechaFin);
         }
 
+        // Filtro por boleta_lider
         if (boleta_lider) {
             query += " AND p.lider = ?";
             queryParams.push(boleta_lider);
         }
 
+        // Filtro por título de protocolo
         if (titulo_protocolo) {
-            query += " AND p.titulo = ?";
-            queryParams.push(titulo_protocolo);
+            query += " AND p.titulo LIKE ?";
+            queryParams.push(`%${titulo_protocolo}%`);
         }
 
-        // Ejecutar la consulta
-        const [protocols] = await pool.execute(query, queryParams);
+        console.log("Consulta:", query);
+        console.log("Parámetros:", queryParams);
 
-        if (protocols.length === 0) {
-            return res.status(404).json({ message: "No se encontraron protocolos que coincidan con los criterios." });
-        }
+        // **4️⃣ Ejecutar la consulta**
+        const [protocolos] = await pool.execute(query, queryParams);
 
-        // Formatear las fechas de los resultados
-        const formattedProtocols = protocols.map(protocol => ({
-            ...protocol,
-            fecha_registro: new Date(protocol.fecha_registro).toLocaleDateString("es-MX", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric"
-            })
-        }));
-
-        // Responder con los protocolos encontrados
-        return res.status(200).json({
-            message: "Protocolos encontrados.",
-            protocolos: formattedProtocols
+        // **5️⃣ Limpiar los datos (eliminar espacios extra)**
+        const protocolosLimpios = protocolos.map(protocol => {
+            return Object.fromEntries(
+                Object.entries(protocol).map(([key, value]) => [
+                    key,
+                    value && typeof value === 'string' ? value.trim() : value // Solo hace trim si el valor es un string
+                ])
+            );
         });
+
+        if (protocolosLimpios.length === 0) {
+            return res.status(404).json({ message: "No se encontraron protocolos con los criterios proporcionados." });
+        }
+
+        // **6️⃣ Registrar la consulta en la tabla ABC**
+        const registerChange = `
+            INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+            VALUES (?, ?, ?, ?)
+        `;
+        const changeDescription = `Consulta de protocolos realizada por ${usuarioBoleta} con filtros: ${JSON.stringify(req.body)}`;
+        await pool.execute(registerChange, ['Consultas', 0, changeDescription, usuarioBoleta]);
+
+        // **7️⃣ Responder con los protocolos encontrados**
+        return res.status(200).json({ protocolos: protocolosLimpios });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ message: "Error en el servidor, intenta de nuevo más tarde." });
+        return res.status(500).json({ message: 'Error en el servidor, intenta de nuevo más tarde' });
     }
 };
 

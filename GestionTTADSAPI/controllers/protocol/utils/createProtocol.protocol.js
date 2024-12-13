@@ -75,7 +75,7 @@ const createProtocol = async (req = request, res = response) => {
 
      // Verificar si ya existe un protocolo con el mismo equipo, líder o título
      const [protocolosExistentes] = await connection.query(
-        `SELECT * FROM Protocolos WHERE id_equipo = ? OR lider = ? OR titulo = ? AND estatus = 'A'`,
+        `SELECT * FROM Protocolos WHERE id_equipo = ? AND lider = ? AND titulo = ? AND estatus = 'A'`,
         [equipo[0].id_equipo, lider_equipo, titulo_protocolo]
       );
   

@@ -1,144 +1,132 @@
 const { request, response } = require("express");
-const { getConnection } = require("../../../models/sqlConnection"); // Conexión con la base de datos MySQL
-const bcrypt = require("bcryptjs"); // Usamos bcrypt para hashear contraseñas
+const { getConnection } = require("../../../models/sqlConnection"); 
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
 const updateProtocol = async (req = request, res = response) => {
-    const {
-        lider,
-        titulo,
-        area,
-        etapa,
-        director,
-        sinodal,
-        catt,
-        calificacion,
-        comentarios,
-        estado
-    } = req.body;
+    const { lider, titulo, contrasena } = req.body;
+    const token = req.header("log-token");
+    let connection; // 🔥 Declarar la variable `connection` fuera del try
+
+    // Validación de parámetros
+    if (!token) {
+        return res.status(400).json({
+            message: "Por favor, inicia sesión"
+        });
+    }
+
+    if (!contrasena || !titulo || !lider) {
+        return res.status(400).json({
+            message: "Faltan parámetros obligatorios: lider, contraseña o título."
+        });
+    }
 
     try {
-        // Validaciones iniciales
-        if (!lider || !titulo) {
-            return res.status(400).json({ message: "El líder y el título del protocolo son obligatorios." });
-        }
+        // Decodificar el token para obtener la boleta (usuario)
+        const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa');
+        const usuario = decoded.boleta || decoded.clave_empleado;
 
-        // Convertir a string y sanitizar todos los campos
-        const liderStr = String(lider || "").trim();
-        const tituloStr = String(titulo || "").trim().toUpperCase();
-        const areaStr = String(area || "").trim().toUpperCase();
-        const etapaStr = String(etapa || "").trim().toUpperCase();
-        const directorStr = String(director || "").trim().toUpperCase();
-        const sinodalStr = String(sinodal || "").trim().toUpperCase();
-        const cattStr = String(catt || "").trim().toUpperCase();
-        const calificacionStr = String(calificacion || "").trim().toUpperCase();
-        const comentariosStr = String(comentarios || "").trim();
-        const estadoStr = String(estado || "").trim().toUpperCase();
+        console.log("Usuario identificado con boleta/clave: ", usuario);
 
-        // Validaciones específicas
-        if (liderStr.length !== 10 || isNaN(liderStr)) {
-            return res.status(400).json({ message: "El líder debe ser un número de boleta con 10 dígitos." });
-        }
+        // Conexión a la base de datos
+        connection = await getConnection(); // 🔥 Usar la variable global `connection`
 
-        if (tituloStr.length > 170) {
-            return res.status(400).json({ message: "El título no puede exceder los 170 caracteres." });
-        }
+        // Obtener el rol del usuario (Alumno o Docente)
+        const [userRows] = await connection.query(
+            "SELECT rol, contrasena FROM Alumnos WHERE boleta = ? UNION SELECT rol, contrasena FROM Docentes WHERE clave_empleado = ?",
+            [usuario, usuario]
+        );
 
-        if (areaStr && areaStr.length > 100) {
-            return res.status(400).json({ message: "El área no puede exceder los 100 caracteres." });
-        }
-
-        if (calificacionStr && calificacionStr.length > 100) {
-            return res.status(400).json({ message: "La calificación no puede exceder los 100 caracteres." });
-        }
-
-        if (comentariosStr && comentariosStr.length > 255) {
-            return res.status(400).json({ message: "Los comentarios no pueden exceder los 255 caracteres." });
-        }
-
-        const etapasPermitidas = ['REGISTRO', 'REVISIÓN', 'EVALUACIÓN', 'RETROALIMENTACIÓN', 'FINALIZADO'];
-        if (etapaStr && !etapasPermitidas.includes(etapaStr)) {
-            return res.status(400).json({ message: `La etapa debe ser una de las siguientes: ${etapasPermitidas.join(", ")}.` });
-        }
-
-        const estadosPermitidos = ['REGISTRADO', 'REVISIÓN', 'APROBADO', 'NO APROBADO'];
-        if (estadoStr && !estadosPermitidos.includes(estadoStr)) {
-            return res.status(400).json({ message: `El estado debe ser uno de los siguientes: ${estadosPermitidos.join(", ")}.` });
-        }
-
-        const pool = await getConnection();
-
-        // Verificar que el protocolo exista con el líder y el título proporcionados
-        const queryCheckProtocol = `
-            SELECT id_protocolo 
-            FROM Protocolos 
-            WHERE lider = ? AND titulo = ?;
-        `;
-        const [protocol] = await pool.execute(queryCheckProtocol, [liderStr, tituloStr]);
-
-        if (protocol.length === 0) {
+        if (userRows.length === 0) {
             return res.status(404).json({
-                message: "No se encontró un protocolo con el líder y el título proporcionados."
+                message: "Usuario no encontrado."
             });
         }
 
-        const id_protocolo = protocol[0].id_protocolo;
+        const rol = userRows[0].rol;
+        const contrasenaHash = userRows[0].contrasena;
 
-        // Construir la consulta de actualización dinámica
-        let updateQuery = "UPDATE Protocolos SET";
-        const queryParams = [];
+        // Verificar la contraseña proporcionada
+        const passwordMatch = await bcrypt.compare(contrasena, contrasenaHash);
 
-        if (areaStr) {
-            updateQuery += " area = ?,";
-            queryParams.push(areaStr);
-        }
-        if (etapaStr) {
-            updateQuery += " etapa = ?,";
-            queryParams.push(etapaStr);
-        }
-        if (directorStr) {
-            updateQuery += " director = ?,";
-            queryParams.push(directorStr);
-        }
-        if (sinodalStr) {
-            updateQuery += " sinodal = ?,";
-            queryParams.push(sinodalStr);
-        }
-        if (cattStr) {
-            updateQuery += " catt = ?,";
-            queryParams.push(cattStr);
-        }
-        if (calificacionStr) {
-            updateQuery += " calificacion = ?,";
-            queryParams.push(calificacionStr);
-        }
-        if (comentariosStr) {
-            updateQuery += " comentarios = ?,";
-            queryParams.push(comentariosStr);
-        }
-        if (estadoStr) {
-            updateQuery += " estado = ?,";
-            queryParams.push(estadoStr);
+        if (!passwordMatch) {
+            return res.status(403).json({
+                message: "Contraseña incorrecta."
+            });
         }
 
-        // Remover la última coma y agregar la condición
-        updateQuery = updateQuery.slice(0, -1) + " WHERE id_protocolo = ?;";
-        queryParams.push(id_protocolo);
+        // Obtener los permisos asociados al rol del usuario
+        const [permisosRows] = await connection.query(
+            "SELECT permisos FROM Permisos WHERE rol = ?",
+            [rol]
+        );
 
-        // Ejecutar la actualización
-        await pool.execute(updateQuery, queryParams);
+        if (permisosRows.length === 0) {
+            return res.status(403).json({
+                message: "No se encontraron permisos para el rol especificado."
+            });
+        }
 
-        // Respuesta exitosa
-        return res.status(200).json({
-            message: "Protocolo actualizado correctamente.",
-            protocolo_actualizado: {
-                id_protocolo,
-                lider: liderStr,
-                titulo: tituloStr
+        const permisos = permisosRows[0].permisos;
+
+        // Verificar si el usuario tiene permiso 'B' o 'G'
+        if (!permisos.includes('B') && !permisos.includes('G')) {
+            return res.status(403).json({
+                message: "No tienes permisos suficientes para realizar esta acción."
+            });
+        }
+
+        // Verificar si el líder es realmente el líder del protocolo
+        const [protocolo] = await connection.query(
+            "SELECT * FROM Protocolos WHERE lider = ? AND estatus = 'A'",
+            [lider]
+        );
+
+        if (protocolo.length === 0) {
+            return res.status(404).json({
+                message: "El protocolo no existe o el líder proporcionado no coincide con el líder registrado."
+            });
+        }
+
+        const idProtocolo = protocolo[0].id_protocolo;
+
+        // **Verificar si el usuario es líder del protocolo o si tiene permiso 'G'**
+        if (!permisos.includes('G') && usuario !== lider) {
+            return res.status(403).json({
+                message: "Solo el líder del protocolo o un usuario con permisos 'G' puede actualizar el título."
+            });
+        }
+
+        // **Actualizar el título del protocolo**
+        await connection.query(
+            "UPDATE Protocolos SET titulo = ? WHERE id_protocolo = ?",
+            [titulo.toUpperCase(), idProtocolo]
+        );
+
+        // **Registrar la actualización en la tabla ABC**
+        await connection.query(
+            `INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+             VALUES (?, ?, ?, ?)`,
+            ['Protocolos', idProtocolo, `Actualización del título del protocolo a: ${titulo.toUpperCase()}`, usuario]
+        );
+
+        // Responder al cliente con éxito
+        res.status(200).json({
+            message: "El título del protocolo se actualizó con éxito.",
+            protocolo: {
+                id_protocolo: idProtocolo,
+                nuevo_titulo: titulo.toUpperCase()
             }
         });
+
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: "Error en el servidor, intenta de nuevo más tarde." });
+        console.error("Error en updateProtocol:", error);
+        res.status(500).json({
+            message: "Error interno del servidor."
+        });
+    } finally {
+        // 🔥 Usar if para verificar que `connection` esté definido antes de liberarlo
+        if (connection) connection.release();
     }
 };
 

@@ -388,5 +388,19 @@ ALTER TABLE Equipos
 ADD COLUMN fecha_eliminacion DATETIME NULL,
 ADD COLUMN usuario_eliminacion VARCHAR(255) NULL;
 
+ALTER TABLE Protocolos
+ADD COLUMN fecha_eliminacion DATETIME NULL,
+ADD COLUMN usuario_eliminacion VARCHAR(255) NULL;
+
 
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------
+
+SELECT * FROM Protocolos WHERE lider = "2025033811" OR titulo = "REAL MADRID" AND estatus = 'A'
+
+UPDATE Protocolos 
+       SET estatus = 'B', 
+           titulo = ' '
+  WHERE id_protocolo = 12
+  
+  SELECT * FROM Equipos 
+WHERE lider = '2025033811';

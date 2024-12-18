@@ -184,10 +184,10 @@ const createDocente = async (req, res, nombre, correo, contrasena, clave_emplead
 
         // Insertar en la tabla Docentes
         const insertQuery = `
-            INSERT INTO Docentes (nombre, correo, contrasena, clave_empleado, rol, nombre_equipo, academia)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO Docentes (nombre, correo, contrasena, clave_empleado, rol, academia)
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
-        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, 'POR DEFINIR', academiaStr]);
+        const [result] = await pool.execute(insertQuery, [nombreStr, correoStr, hashedPassword, claveEmpleadoStr, rolStr, academiaStr]);
 
         // Obtener el ID del usuario recién insertado
         const newUserId = result.insertId;

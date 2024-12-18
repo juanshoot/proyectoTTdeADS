@@ -139,6 +139,7 @@ const updateTeam = async (req = request, res = response) => {
         }
 
       // Realizar la actualización solo si hay algo que actualizar
+
         if (Object.keys(fieldsToUpdate).length > 0) {
             await connection.query(
                 "UPDATE Equipos SET nombre_equipo = ?, titulo = ?, director = ?, director_2 = ?, academia = ? WHERE nombre_equipo = ? AND lider = ? AND estado = 'A'",
@@ -152,6 +153,25 @@ const updateTeam = async (req = request, res = response) => {
                     lider
                 ]
             );
+
+            // Realizar la actualización de la tabla Docente_Equipos si el nombre del equipo cambia
+            if (fieldsToUpdate.nombre_equipo) {
+                await connection.query(
+                    "UPDATE Docente_Equipos SET nombre_equipo = ? WHERE id_equipo = ? AND id_docente = ?",
+                    [
+                        fieldsToUpdate.nombre_equipo.toUpperCase(),  // Actualizar con el nuevo nombre del equipo
+                        equipo[0].id_equipo,                         // Usamos el id_equipo que se recuperó previamente
+                        lider                                        // El líder es el docente que hace la actualización
+                    ]
+                );
+
+                // Registrar el cambio en la tabla ABC
+                const cambioDocenteEquipos = `Se actualizó el nombre del equipo a ${fieldsToUpdate.nombre_equipo.toUpperCase()} para el docente.`;
+                await connection.query(
+                    "INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) VALUES (?, ?, ?, ?)",
+                    ['Docente_Equipos', equipo[0].id_equipo, cambioDocenteEquipos, lider]
+                );
+            }
 
             // Registrar el cambio en la tabla ABC
             const cambio = `Se actualizó el equipo ${nombre_equipo}.`;

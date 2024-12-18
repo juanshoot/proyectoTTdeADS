@@ -70,11 +70,6 @@ const deleteTeam = async (req = request, res = response) => {
       [idEquipo]
     );
 
-    await connection.query(
-      "UPDATE Docentes SET id_equipo = NULL WHERE id_equipo = ?",
-      [idEquipo]
-    );
-
    // Registrar en la tabla Equipos el cambio de estado a "B" (dado de baja)
    const usuarioEliminacion = usuarioBoleta;  // Puedes usar la boleta del usuario
    const fechaEliminacion = new Date();
@@ -83,6 +78,12 @@ const deleteTeam = async (req = request, res = response) => {
      "UPDATE Equipos SET estado = 'B', fecha_eliminacion = ?, usuario_eliminacion = ? WHERE id_equipo = ?",
      [fechaEliminacion, usuarioEliminacion, idEquipo]
    );
+
+     // Cambiar el estado de los docentes en la tabla Docente_Equipos de 'A' a 'B'
+     await connection.query(
+      "UPDATE Docente_Equipos SET estatus = 'B' WHERE id_equipo = ?",
+      [idEquipo]
+    );
 
     // Registrar cambio en la tabla ABC
     await connection.query(

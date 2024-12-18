@@ -99,7 +99,7 @@ const updateProtocol = async (req = request, res = response) => {
 
         // **Actualizar el título del protocolo**
         await connection.query(
-            "UPDATE Protocolos SET titulo = ? WHERE id_protocolo = ?",
+            "UPDATE Protocolos SET titulo = ? WHERE id_protocolo = ? AND estatus = 'A'",
             [titulo.toUpperCase(), idProtocolo]
         );
 

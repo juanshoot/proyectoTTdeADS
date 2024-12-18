@@ -34,6 +34,7 @@ const deleteProtocol = async (req = request, res = response) => {
 
     let { lider, titulo_protocolo } = req.body;
 
+
     lider = lider.toUpperCase();
     titulo_protocolo = titulo_protocolo.toUpperCase();
 
@@ -56,13 +57,27 @@ const deleteProtocol = async (req = request, res = response) => {
       [tituloProtocolo, lider]
     );
 
+
+
     if (!protocolo.length) {
       return res.status(404).json({ message: "El protocolo no existe o ya ha sido dado de baja." });
     }
 
+    console.log(protocolo[0].director);
+    console.log(protocolo[0].director_2);
+    console.log(protocolo[0].sinodal);
+    console.log(protocolo[0].sinodal_2);
+
     const idProtocolo = protocolo[0].id_protocolo;
     const idEquipo = protocolo[0].id_equipo;
     const liderEquipo = protocolo[0].lider;
+    const idDirector = protocolo[0].director;
+    const idDirector2 = protocolo[0].director_2;
+    const idSinodal = protocolo[0].sindoal_1;
+    const idSinodal2 = protocolo[0].sinodal_2;
+    const idSinodal3 = protocolo[0].sinodal_3;
+
+  
 
     // **Verificar si el usuario es líder del protocolo** (si no tiene permiso 'G')
     if (!permisosUsuario.includes('G') && lider !== liderEquipo) {
@@ -87,10 +102,29 @@ const deleteProtocol = async (req = request, res = response) => {
     );
 
     // **Eliminar referencias de id_protocolo en la tabla Docentes**
-    await connection.query(
-      "UPDATE Docentes SET id_protocolo = NULL WHERE id_equipo = ?",
-      [idEquipo]
-    );
+    const idsDocentes = [idDirector, idDirector2, idSinodal, idSinodal2, idSinodal3];
+
+    for (const idDocente of idsDocentes) {
+      if (idDocente) {
+        // Primero, obtenemos el id_docente si estamos usando clave_empleado
+        const [docente] = await connection.query(
+          "SELECT id_docente FROM Docentes WHERE clave_empleado = ?",
+          [idDocente]
+        );
+
+        if (docente.length > 0) {
+          const idDocenteCorrecto = docente[0].id_docente;
+
+          // Ahora actualizamos en la tabla Docente_Equipos: cambiar el estatus a 'B'
+          await connection.query(
+            "UPDATE Docente_Protocolo SET estatus = 'B' WHERE id_protocolo = ? AND id_docente = ?",
+            [idProtocolo, idDocenteCorrecto]
+          );
+        } else {
+          console.log(`Docente con clave_empleado ${idDocente} no encontrado.`);
+        }
+      }
+    }
 
     // **Eliminar la referencia de id_protocolo en la tabla Equipos**
     await connection.query(

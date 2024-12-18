@@ -7,17 +7,15 @@ const newTeam = async (req = request, res = response) => {
   const token = req.header("log-token");
 
   if (!token) {
-    return res.status(401).json({ message: "Porfavor Inicie Sesion" });
+    return res.status(401).json({ message: "Por favor, inicie sesión" });
   }
 
   try {
-    // Decodificar token para obtener la boleta o clave de usuario
     const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa');
     const usuarioBoleta = decoded.boleta || decoded.clave_empleado;
 
     console.log(usuarioBoleta);
 
-    // Obtener los permisos del usuario desde la tabla Permisos
     const [permisos] = await connection.query(
       "SELECT permisos FROM Permisos WHERE rol = (SELECT rol FROM Alumnos WHERE boleta = ? UNION SELECT rol FROM Docentes WHERE clave_empleado = ?)",
       [usuarioBoleta, usuarioBoleta]
@@ -31,14 +29,12 @@ const newTeam = async (req = request, res = response) => {
 
     console.log(permisosUsuario);
 
-    // Verificar si tiene permisos de crear equipos
     if (!permisosUsuario.includes('6') && !permisosUsuario.includes('G')) {
       return res.status(403).json({ message: "No tienes permisos para crear equipos" });
     }
 
     const { nombre_equipo, titulo, director, director_2 = "NO TIENE", academia, integrantes_boletas, lider } = req.body;
 
-    // Validaciones de mayúsculas y tipo de datos
     if (typeof nombre_equipo !== 'string' || typeof titulo !== 'string' || typeof academia !== 'string') {
       return res.status(400).json({ message: "Los campos nombre_equipo, titulo y academia deben ser strings" });
     }
@@ -47,7 +43,24 @@ const newTeam = async (req = request, res = response) => {
     const tituloEquipo = titulo.toUpperCase();
     const academiaEquipo = academia.toUpperCase();
 
-    // Verificar que la academia exista
+    // 🛑 **Validación: Verificar que no exista un equipo con el mismo nombre_equipo**
+    const [equipoConMismoNombre] = await connection.query(
+      "SELECT * FROM Equipos WHERE UPPER(nombre_equipo) = ? AND estado = 'A'",
+      [nombreEquipo]
+    );
+    if (equipoConMismoNombre.length > 0) {
+      return res.status(400).json({ message: `Ya existe un equipo con el nombre '${nombreEquipo}'` });
+    }
+
+    // 🛑 **Validación: Verificar que no exista un equipo con el mismo título**
+    const [equipoConMismoTitulo] = await connection.query(
+      "SELECT * FROM Equipos WHERE UPPER(titulo) = ? AND estado = 'A'",
+      [tituloEquipo]
+    );
+    if (equipoConMismoTitulo.length > 0) {
+      return res.status(400).json({ message: `Ya existe un equipo con el título '${tituloEquipo}'` });
+    }
+
     const [academiaExistente] = await connection.query(
       "SELECT * FROM Academia WHERE academia = ?",
       [academiaEquipo]
@@ -57,7 +70,6 @@ const newTeam = async (req = request, res = response) => {
       return res.status(400).json({ message: "La academia ingresada no existe" });
     }
 
-    // Verificar que los estudiantes existan y no pertenezcan a otro equipo
     const placeholders = integrantes_boletas.map(() => '?').join(',');
     const [alumnos] = await connection.query(
       `SELECT boleta, estado, id_equipo FROM Alumnos WHERE boleta IN (${placeholders})`,
@@ -78,7 +90,6 @@ const newTeam = async (req = request, res = response) => {
       return res.status(400).json({ message: "Algunos estudiantes ya están en un equipo" });
     }
 
-    // Verificar directores y roles
     const [directores] = await connection.query(
       "SELECT clave_empleado, rol FROM Docentes WHERE clave_empleado IN (?, ?)",
       [director, director_2]
@@ -92,66 +103,58 @@ const newTeam = async (req = request, res = response) => {
       if (director.rol === 'ESTUDIANTE') {
         return res.status(400).json({ message: "Un director no puede tener rol de estudiante" });
       }
-
-      // Verificar que el director no esté en más de 5 equipos
-      const [equiposDirector] = await connection.query(
-        "SELECT COUNT(*) AS total FROM Equipos WHERE director = ? OR director_2 = ?",
-        [director.clave_empleado, director.clave_empleado]
-      );
-
-      if (equiposDirector[0].total >= 5) {
-        return res.status(400).json({ message: "El director ya está asignado a 5 equipos" });
-      }
     }
 
-    // Verificar que si tiene permiso '6', el usuario debe ser estudiante y estar en el equipo
     if (permisosUsuario.includes('6')) {
-      // Verificar si el usuario es estudiante
       const [usuario] = await connection.query(
         "SELECT rol FROM Alumnos WHERE boleta = ?",
         [usuarioBoleta]
       );
 
-      if (usuario.length === 0 || usuario[0].rol !== 'ESTUDIANTE') {
-        return res.status(403).json({ message: "Solo los estudiantes pueden crear equipos con permiso '6'" });
-      }
+      if (permisosUsuario.includes('G')) {
+        console.log("Permiso 'G' detectado, permitiendo creación de equipo sin restricción de pertenencia.");
 
-      // Verificar que el usuario esté en el equipo o sea el líder
-      const esIntegrante = integrantes_boletas.includes(usuarioBoleta) || lider === usuarioBoleta;
-      if (!esIntegrante) {
-        return res.status(403).json({ message: "No puedes crear un equipo si no eres parte de él" });
       }
+        else if (usuario.length === 0 || usuario[0].rol !== 'ESTUDIANTE') {
+          return res.status(403).json({ message: "Solo los estudiantes pueden crear equipos con permiso '6'" });
+        }
+  
+        else if (!integrantes_boletas.includes(usuarioBoleta) && lider !== usuarioBoleta) {
+          return res.status(403).json({ message: "No puedes crear un equipo si no eres parte de él" });
+        }
+  
     }
 
-    // Si el usuario tiene permiso 'G', no importa si es parte del equipo
-    if (permisosUsuario.includes('G')) {
-      console.log("Permiso 'G' detectado, permitiendo creación de equipo sin restricción de pertenencia.");
-    }
 
-    // Insertar equipo en la base de datos
     const [resultadoEquipo] = await connection.query(
       `INSERT INTO Equipos (lider, nombre_equipo, titulo, director, director_2, academia) 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [lider, nombreEquipo, tituloEquipo, director, director_2, academiaEquipo]
     );
-    
+
     const idEquipo = resultadoEquipo.insertId;
-    
-    // Asociar el id_equipo al director y director_2 (si tienen)
+
     await connection.query(
-      "UPDATE Docentes SET id_equipo = ? WHERE clave_empleado IN (?, ?)",
-      [idEquipo, director, director_2]
+      `
+        INSERT INTO Docente_Equipos (id_docente, id_equipo, nombre_equipo) 
+      SELECT d.id_docente, ?, e.nombre_equipo
+      FROM Docentes d
+      JOIN Equipos e ON e.id_equipo = ?
+      WHERE d.clave_empleado IN (?, ?)
+      ON DUPLICATE KEY UPDATE 
+        id_equipo = VALUES(id_equipo), 
+        fecha_asignacion = CURRENT_TIMESTAMP
+      `,
+      [idEquipo, idEquipo, idEquipo, director, director_2]
     );
-    
-    // Asociar a los estudiantes al equipo
+
     for (const boleta of integrantes_boletas) {
       await connection.query(
         "UPDATE Alumnos SET id_equipo = ?, nombre_equipo = ? WHERE boleta = ?",
         [idEquipo, nombreEquipo, boleta]
       );
     }
-    
-    // Registrar cambio en la tabla ABC
+
     await connection.query(
       `INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
        VALUES (?, ?, ?, ?)`,

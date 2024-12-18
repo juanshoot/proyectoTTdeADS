@@ -11,7 +11,7 @@ const consultProtocol = async (req = request, res = response) => {
     }
 
     try {
-        // **1️⃣ Decodificar token para obtener la boleta o clave de usuario**
+        // ** Decodificar token para obtener la boleta o clave de usuario**
         const decoded = jwt.verify(token, 'cLaaVe_SecReeTTa'); // Usa el secreto correcto para verificar el token
         const usuarioBoleta = decoded.boleta || decoded.clave_empleado; // Usamos boleta o clave_empleado
 
@@ -22,7 +22,7 @@ const consultProtocol = async (req = request, res = response) => {
 
         const { rol: userRole } = decoded; // Obtener el rol del usuario desde el token
 
-        // **2️⃣ Verificar permisos de usuario**
+        // **2️ Verificar permisos de usuario**
         const pool = await getConnection();
         const [rolePermissions] = await pool.execute('SELECT permisos FROM Permisos WHERE rol = ?', [userRole]);
 
@@ -38,7 +38,7 @@ const consultProtocol = async (req = request, res = response) => {
             return res.status(403).json({ message: 'No tienes permisos para consultar protocolos.' });
         }
 
-        // **3️⃣ Construcción de la consulta**
+        // ** Construcción de la consulta**
         let query = `
             SELECT 
                 p.id_protocolo,
@@ -52,8 +52,9 @@ const consultProtocol = async (req = request, res = response) => {
                 p.sinodal_1,
                 p.sinodal_2,
                 p.sinodal_3,
-                p.calificacion,
-                p.comentarios,
+                p.calif_Sinodal1,
+                p.calif_Sinodal2,
+                p.calif_Sinodal3,
                 p.estado,
                 p.fecha_registro,
                 p.estatus
@@ -105,13 +106,13 @@ const consultProtocol = async (req = request, res = response) => {
             queryParams.push(`%${titulo_protocolo}%`);
         }
 
-        console.log("Consulta:", query);
-        console.log("Parámetros:", queryParams);
+        // console.log("Consulta:", query);
+        // console.log("Parámetros:", queryParams);
 
-        // **4️⃣ Ejecutar la consulta**
+        // ** Ejecutar la consulta**
         const [protocolos] = await pool.execute(query, queryParams);
 
-        // **5️⃣ Limpiar los datos (eliminar espacios extra)**
+        // ** Limpiar los datos (eliminar espacios extra)**
         const protocolosLimpios = protocolos.map(protocol => {
             return Object.fromEntries(
                 Object.entries(protocol).map(([key, value]) => [
@@ -125,7 +126,7 @@ const consultProtocol = async (req = request, res = response) => {
             return res.status(404).json({ message: "No se encontraron protocolos con los criterios proporcionados." });
         }
 
-        // **6️⃣ Registrar la consulta en la tabla ABC**
+        // ** Registrar la consulta en la tabla ABC**
         const registerChange = `
             INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
             VALUES (?, ?, ?, ?)

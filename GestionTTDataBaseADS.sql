@@ -24,8 +24,6 @@ CREATE TABLE Alumnos (
 CREATE TABLE Docentes (
     id_docente INT AUTO_INCREMENT PRIMARY KEY,      -- ID único del docente
     rol VARCHAR(250) NULL,                          -- Rol asignado al docente
-    id_equipo INT,                                  -- Relación con la tabla de Equipos
-    id_protocolo INT,                               -- Relación con la tabla de Protocolos
     academia VARCHAR(150),
     nombre VARCHAR(250) UNIQUE NULL,               -- Nombre único del docente
     correo VARCHAR(250) UNIQUE NOT NULL,           -- Correo único del docente
@@ -37,10 +35,13 @@ CREATE TABLE Docentes (
     fecha_cambio TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Fecha de cambio del registro
 );
 
+    
+
 CREATE TABLE Roles (
     rol VARCHAR(250) PRIMARY KEY,
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE Equipos (
     id_equipo INT AUTO_INCREMENT PRIMARY KEY,
@@ -55,7 +56,21 @@ CREATE TABLE Equipos (
     sinodal_3 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
     academia VARCHAR(100),
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    estado VARCHAR(10) DEFAULT 'A' -- Nueva columna 'estado'
+    estado VARCHAR(10) DEFAULT 'A', -- Nueva columna 'estado'
+    fecha_eliminacion DATETIME NULL,
+    usuario_eliminacion VARCHAR(255) NULL,
+    estado VARCHAR(10) DEFAULT 'A'
+);
+
+CREATE TABLE Docente_Equipos (
+    id_docente INT NOT NULL,                -- ID del docente
+    id_equipo INT NOT NULL,                 -- ID del equipo
+    nombre_equipo VARCHAR(150),
+	estatus VARCHAR(10) NOT NULL DEFAULT 'A',
+    fecha_asignacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de asignación
+    PRIMARY KEY (id_docente, id_equipo),    -- Clave primaria compuesta (evita duplicados)
+    FOREIGN KEY (id_docente) REFERENCES Docentes(id_docente) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Tabla de protocolos
@@ -71,11 +86,32 @@ CREATE TABLE Protocolos (
     sinodal_1 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
     sinodal_2 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
     sinodal_3 VARCHAR(100) NOT NULL, -- Referencia a Usuarios (id_usuario) que es el sinodal
-    calificacion VARCHAR(100) NOT NULL  DEFAULT 'Pendiente',
-    comentarios VARCHAR(255),
+	calif_Sinodal1 VARCHAR(100) NOT NULL DEFAULT 'Pendiente', 
+    calif_Sinodal2 VARCHAR(100) NOT NULL DEFAULT 'Pendiente', 
+    calif_Sinodal3 VARCHAR(100) NOT NULL DEFAULT 'Pendiente',
     estado VARCHAR(100) NOT NULL DEFAULT 'Registrado',
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_eliminacion DATETIME NULL,
+    usuario_eliminacion VARCHAR(255) NULL,
+	estatus VARCHAR(10) DEFAULT 'A',
+    pdf VARCHAR(255) DEFAULT 'EN PROGRESO'
 );
+
+
+
+CREATE TABLE Docente_Protocolo (
+    id_docente INT NOT NULL,                -- ID del docente
+    id_protocolo INT NOT NULL,              -- ID del protocolo
+    titulo VARCHAR(150) NOT NULL,           -- Título del protocolo
+    estatus VARCHAR(10) NOT NULL DEFAULT 'A',
+    fecha_asignacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de asignación
+    PRIMARY KEY (id_docente, id_protocolo), -- Clave primaria compuesta (evita duplicados)
+    FOREIGN KEY (id_docente) REFERENCES Docentes(id_docente) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+DROP TABLE IF EXISTS Docente_Protocolo;
+DROP TABLE IF EXISTS Docente_Equipos;
 
 
 -- Tabla de permisos
@@ -187,17 +223,8 @@ ALTER TABLE Docentes
 ADD CONSTRAINT fk_docentes_rol
 FOREIGN KEY (rol) REFERENCES Roles(rol)
     ON DELETE SET NULL
-    ON UPDATE CASCADE,
-    
-ADD CONSTRAINT fk_docentes_equipo
-FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo)
-    ON DELETE SET NULL
-    ON UPDATE CASCADE,
-    
-ADD CONSTRAINT fk_docentes_protocolo
-FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo)
-    ON DELETE SET NULL
     ON UPDATE CASCADE;
+    
     
 -- Tabla Equipos
 ALTER TABLE Equipos
@@ -222,6 +249,15 @@ FOREIGN KEY (rol) REFERENCES Roles(rol)
     ON UPDATE CASCADE;
     
 
+
+ALTER TABLE Docentes 
+	 DROP COLUMN nombre_equipo,
+    DROP COLUMN id_protocolo, 
+    DROP COLUMN id_equipo;
+
+
+    
+
     
 -- ----------------------------------------- CAMBIOS ------------------------------------------------------------
 
@@ -231,7 +267,8 @@ SELECT * FROM Docentes;
 SELECT * FROM Roles;
 SELECT * FROM Equipos;
 SELECT * FROM Protocolos;
-
+SELECT * FROM Docente_Equipos;
+SELECT * FROM Docente_Protocolo;
 
 SELECT * FROM Permisos;
 
@@ -245,9 +282,9 @@ SELECT * FROM ABC;
 
 DELETE FROM Equipos WHERE id_equipo = 7;
 
-
-DELETE FROM Protocolos;
-
+DELETE FROM Equipos WHERE estado = 'B';
+DELETE FROM Protocolos WHERE estatus = 'A';
+DELETE FROM Docente_Protocolo WHERE estatus = 'A';
 
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------
 
@@ -265,9 +302,6 @@ VALUES
 ('ESTUDIANTE'),
 ('SINODAL');
 
-
-INSERT INTO Permisos (rol, permisos)
-VALUES ('ADMIN', '0123456789ABC');
 
 ALTER TABLE Permisos 
 MODIFY permisos VARCHAR(20) NOT NULL;
@@ -308,72 +342,7 @@ UPDATE Permisos
 SET permisos = '0123456789ABCDFG' 
 WHERE rol = 'TECNICO';
 
-
-SELECT 'DOCENTE' AS tipo, id_docente, nombre, correo, clave_empleado 
-FROM Docentes 
-WHERE nombre = ? OR correo = ? OR clave_empleado = ?
-
-UNION 
-
-SELECT 'ALUMNO' AS tipo, id_alumno, nombre, correo, boleta 
-FROM Alumnos 
-WHERE nombre = ? OR correo = ?
-
-DELETE FROM Docentes 
-WHERE 
-    (nombre = 'VANESSA CAMACHO ELISA' AND correo = 'vaneCam78@gmail.com' AND clave_empleado = '2022630557') OR
-    (nombre = 'VANESSA CAMACHO ORTEGA' AND correo = 'vaneCam7@gmail.com' AND clave_empleado = '2022630500') OR
-    (nombre = 'VANESSA CAMACHO ORTEGAZ' AND correo = 'vaneCam71@gmail.com' AND clave_empleado = '2022630501') OR
-    (nombre = 'VANESSA CAMACHO ORTEGAM' AND correo = 'vaneCam75@gmail.com' AND clave_empleado = '2022630502') OR
-    (nombre = 'VANESSA CAMACHO ORTEGAY' AND correo = 'vaneCam77@gmail.com' AND clave_empleado = '2022630503') OR
-    (nombre = 'VANESSA CAMACHO ORTEGAYMER' AND correo = 'vaneCam79@gmail.com' AND clave_empleado = '2022630508') OR
-    (nombre = 'VANESSA CAMACHO ORTEHYUIAD' AND correo = 'vaneCam89@gmail.com' AND clave_empleado = '2022630509') OR
-    (nombre = 'VANESSA CAMACHO ORTEHYUIADOGY' AND correo = 'vaneCam99@gmail.com' AND clave_empleado = '2022630510') OR
-    (nombre = 'VANESSA CAMACHO ORTEHYUIADOGYOP' AND correo = 'vaneCam87@gmail.com' AND clave_empleado = '2022630513') OR
-    (nombre = 'VANESSA ORTEGA' AND correo = 'vaneCam28@gmail.com' AND clave_empleado = '2022630566') OR
-    (nombre = 'MARTIN CORTES' AND correo = 'marcort00@gmail.com' AND clave_empleado = '2024999999');
     
-DELETE FROM Alumnos 
-WHERE 
-    (nombre = 'VANESSA CAMACHO ELISAM' AND correo = 'vaneCam28@gmail.com' AND boleta = '2022630504') OR
-    (nombre = 'VANESSA CAMACHO ELISAMO' AND correo = 'vaneCam29@gmail.com' AND boleta = '2022630505') OR
-    (nombre = 'VANESSA CAMACHO ALITA' AND correo = 'vaneCam99@gmail.com' AND boleta = '2022630545');
-    
-
-
-DELETE FROM Academia 
-WHERE 
-    (id_academia = 'BASICAS' AND academia = 'BASICAS') OR
-    (id_academia = 'BASICAS' AND academia = 'BASICAS') 
-    
-    
-    ALTER TABLE Equipos MODIFY COLUMN sinodal_1 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
-     ALTER TABLE Equipos MODIFY COLUMN sinodal_2 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
-          ALTER TABLE Equipos MODIFY COLUMN sinodal_3 VARCHAR(100) NOT NULL DEFAULT 'SIN ASIGNAR';
-          ALTER TABLE Equipos MODIFY COLUMN director_2 VARCHAR(100) NOT NULL DEFAULT 'NO TIENE';
-    
-    
-    -- 1. Eliminar los estudiantes del equipo (actualizar su id_equipo)
-UPDATE Alumnos 
-SET id_equipo = NULL, nombre_equipo = NULL 
-WHERE nombre_equipo = 'REAL MADRID';
-
--- 2. Eliminar la relación del director y director_2 con el equipo
-UPDATE Docentes 
-SET id_equipo = NULL 
-WHERE clave_empleado = '0000000002';
-
--- 3. Eliminar el equipo de la tabla Equipos
-DELETE FROM Equipos 
-WHERE nombre_equipo = 'REAL MADRID' AND titulo = 'CAMPEONES 2025';
-    
-    
-    ALTER TABLE Equipos
-ADD COLUMN estado VARCHAR(10) DEFAULT 'A';
-
-
-    ALTER TABLE Protocolos
-ADD COLUMN estatus VARCHAR(10) DEFAULT 'A';
 
 UPDATE Protocolos
 SET estatus = 'A';
@@ -384,23 +353,23 @@ SET estado = 'A';
 UPDATE Alumnos
 SET estado = 'A';
 
-ALTER TABLE Equipos
-ADD COLUMN fecha_eliminacion DATETIME NULL,
-ADD COLUMN usuario_eliminacion VARCHAR(255) NULL;
 
-ALTER TABLE Protocolos
-ADD COLUMN fecha_eliminacion DATETIME NULL,
-ADD COLUMN usuario_eliminacion VARCHAR(255) NULL;
+UPDATE Alumnos
+SET id_equipo = null;
+
+UPDATE Alumnos
+SET id_protocolo = null;
+
 
 
 -- ------------------------------------- INSERTS PRUEBA ------------------------------------------------------------
 
 SELECT * FROM Protocolos WHERE lider = "2025033811" OR titulo = "REAL MADRID" AND estatus = 'A'
 
-UPDATE Protocolos 
-       SET estatus = 'B', 
-           titulo = ' '
-  WHERE id_protocolo = 12
-  
-  SELECT * FROM Equipos 
-WHERE lider = '2025033811';
+ALTER TABLE Protocolos 
+ADD COLUMN pdf VARCHAR(255) DEFAULT 'EN PROGRESO';
+
+DELETE FROM Docente_Protocolo
+WHERE id_docente = 3;
+-- Inserta un equipo especial en Equipos
+

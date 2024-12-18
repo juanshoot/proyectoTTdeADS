@@ -26,7 +26,8 @@ class Server
 
         this.rutaUsuario = '/api/gestionTT/usuario'
         this.rutaProtocolo = '/api/gestionTT/protocolos'
-
+        this.rutaGestion = '/api/gestionTT/gestion'
+ 
        
        
 
@@ -50,7 +51,7 @@ class Server
     {
         this.app.use(this.rutaUsuario,require('../routes/user.routes'));
         this.app.use(this.rutaProtocolo,require('../routes/protocol.routes'));
-
+        this.app.use(this.rutaGestion,require('../routes/gestion.routes'));
 
          //No more routes FROM HERE
          this.app.use(this.rutaPage, require('../routes/webApp.routes'));

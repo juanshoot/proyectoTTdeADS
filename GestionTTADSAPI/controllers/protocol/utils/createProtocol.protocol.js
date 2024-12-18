@@ -32,7 +32,7 @@ const createProtocol = async (req = request, res = response) => {
       return res.status(403).json({ message: "No tienes permisos para crear un protocolo." });
     }
 
-    const { lider_equipo, titulo_protocolo, academia } = req.body;
+    let { lider_equipo, titulo_protocolo, academia } = req.body;
 
     // Validar los parámetros necesarios
     if (typeof titulo_protocolo !== 'string' || typeof academia !== 'string') {
@@ -40,6 +40,8 @@ const createProtocol = async (req = request, res = response) => {
     }
 
     const academiaUpper = academia.toUpperCase();
+    titulo_protocolo = titulo_protocolo.toUpperCase();
+    
 
     // Verificar que la academia exista
     const [academiaExistente] = await connection.query(
@@ -60,18 +62,18 @@ const createProtocol = async (req = request, res = response) => {
     if (!equipo.length) {
       return res.status(404).json({ message: "El lider que ingresaste no se encuentra en un equipo activo." });
     }
-
+    
+    // Si el usuario tiene permiso 'G', no es necesario ser parte del equipo
+    if (permisosUsuario.includes('G')) {
+      console.log("Permiso 'G' detectado, permitiendo creación del protocolo.");
+    }
     // Si el usuario tiene permiso 'A', verificar si es el líder del equipo
-    if (permisosUsuario.includes('A')) {
+    else if (permisosUsuario.includes('A')) {
       if (equipo[0].lider !== usuarioBoleta) {
         return res.status(403).json({ message: "No eres el líder del equipo, no puedes crear el protocolo." });
       }
     }
 
-    // Si el usuario tiene permiso 'G', no es necesario ser parte del equipo
-    if (permisosUsuario.includes('G')) {
-      console.log("Permiso 'G' detectado, permitiendo creación del protocolo.");
-    }
 
      // Verificar si ya existe un protocolo con el mismo equipo, líder o título
      const [protocolosExistentes] = await connection.query(
@@ -104,11 +106,9 @@ const createProtocol = async (req = request, res = response) => {
 
     const idProtocolo = resultadoProtocolo.insertId;
 
+    const idDirector = equipo[0].director;
+    const idDirector2 = equipo[0].director_2;
 
-    await connection.query(
-        `UPDATE Equipos SET id_protocolo = ? WHERE lider = ?`,
-        [idProtocolo, lider_equipo]
-      );
 
      // Actualizar id_protocolo en la tabla Equipos
      await connection.query(
@@ -124,13 +124,24 @@ const createProtocol = async (req = request, res = response) => {
         [idProtocolo, equipo[0].id_equipo]
       );
     
-      // Actualizar id_protocolo en la tabla Docentes para todos los docentes del equipo del líder, incluyendo al líder mismo
-      await connection.query(
-        `UPDATE Docentes 
-         SET id_protocolo = ? 
-         WHERE id_equipo = ?`,
-        [idProtocolo, equipo[0].id_equipo]
-      );
+    // Obtener los ID de los docentes (directores) que están en el equipo
+    const [directores] = await connection.query(
+      `SELECT id_docente 
+       FROM Docentes 
+       WHERE clave_empleado IN (?, ?)`, 
+      [equipo[0].director, equipo[0].director_2]
+    );
+
+    // Insertar en Docente_Protocolo para cada director
+    for (const director of directores) {
+      if (director.id_docente) {
+        await connection.query(
+          `INSERT INTO Docente_Protocolo (id_docente, id_protocolo, titulo, estatus) 
+           VALUES (?, ?, ?, ?)`,
+          [director.id_docente, idProtocolo, titulo_protocolo, 'A']
+        );
+      }
+      }
 
     // Registrar cambio en la tabla ABC
     await connection.query(

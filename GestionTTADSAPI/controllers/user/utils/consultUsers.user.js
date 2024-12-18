@@ -61,11 +61,19 @@ const consultUsers = async (req = request, res = response) => {
         }
 
         let queryDocentes = `
-            SELECT 'Docente' AS tipo, d.clave_empleado, d.nombre, d.correo, e.nombre_equipo, p.titulo AS nombre_protocolo, d.estado
-            FROM Docentes d 
-            LEFT JOIN Equipos e ON d.id_equipo = e.id_equipo 
-            LEFT JOIN Protocolos p ON d.id_protocolo = p.id_protocolo
-            WHERE 1=1
+             SELECT 
+            'Docente' AS tipo, 
+            d.clave_empleado, 
+            d.nombre, 
+            d.correo, 
+            e.nombre_equipo, 
+            p.titulo AS nombre_protocolo, 
+            d.estado 
+        FROM Docente_Protocolo_Equipos dpe 
+        JOIN Docentes d ON dpe.id_docente = d.id_docente 
+        JOIN Protocolos p ON dpe.id_protocolo = p.id_protocolo 
+        JOIN Equipos e ON dpe.id_equipo = e.id_equipo 
+        WHERE 1=1
         `;
 
         if (!puedeConsultarTodos) {

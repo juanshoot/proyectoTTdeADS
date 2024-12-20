@@ -156,6 +156,7 @@ CREATE TABLE Evaluacion (
     id_evaluacion INT AUTO_INCREMENT PRIMARY KEY, -- ID único para la evaluación
     id_protocolo INT NOT NULL,                    -- Relación con la tabla Protocolos
     id_equipo INT NOT NULL,                       -- Relación con la tabla Equipos
+    
     fecha_evaluacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de la evaluación
     sinodal VARCHAR(100) NOT NULL,             -- Nombre del primer sinodal
     titulo_corresponde_producto ENUM('SI', 'NO') DEFAULT 'NO', -- Respuesta para la pregunta 1
@@ -180,6 +181,7 @@ CREATE TABLE Evaluacion (
     observaciones_10 TEXT,                      -- Observaciones de la pregunta 10
     aprobado ENUM('SI', 'NO') DEFAULT 'NO',    -- Si fue aprobado el protocolo
     recomendaciones_adicionales TEXT,          -- Recomendaciones generales de la evaluación
+    
     FOREIGN KEY (id_protocolo) REFERENCES Protocolos(id_protocolo) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_equipo) REFERENCES Equipos(id_equipo) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -269,6 +271,8 @@ SELECT * FROM Equipos;
 SELECT * FROM Protocolos;
 SELECT * FROM Docente_Equipos;
 SELECT * FROM Docente_Protocolo;
+SELECT * FROM Dictamen;
+SELECT * FROM Evaluacion;
 
 SELECT * FROM Permisos;
 

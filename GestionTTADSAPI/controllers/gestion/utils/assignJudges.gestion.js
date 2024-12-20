@@ -80,7 +80,7 @@ const assignJudges = async (req = request, res = response) => {
                  FROM Docentes 
                  WHERE estado = 'A' 
                  AND (SELECT COUNT(*) FROM Docente_Protocolo WHERE Docente_Protocolo.id_docente = Docentes.id_docente AND Docente_Protocolo.estatus = 'A') < 5 
-                 AND rol IN ('PRESIDENTE ACADEMIA', 'PROFESOR', 'SINODAL', 'DOCENTE')`
+                 AND rol IN ('SINODAL')`
             );
 
             const totalSinodales = [...sinodalesDisponibles, ...sinodalesExtra];

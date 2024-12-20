@@ -138,6 +138,37 @@ const rateForm = async (req = request, res = response) => {
             [protocoloId, `Calificación de sinodal ${boleta}: ${califValue}`, boleta]
         );
 
+         // Verificar si los 3 sinodales ya calificaron
+         const [protocoloActualizado] = await connection.query(
+            `SELECT calif_Sinodal1, calif_Sinodal2, calif_Sinodal3 FROM Protocolos WHERE id_protocolo = ?`, 
+            [protocoloId]
+        );
+
+        const { calif_Sinodal1, calif_Sinodal2, calif_Sinodal3 } = protocoloActualizado[0];
+
+        if (calif_Sinodal1 !== 'Pendiente' && calif_Sinodal2 !== 'Pendiente' && calif_Sinodal3 !== 'Pendiente') {
+            let resultadoDictamen = 'EN REVISIÓN';
+            if (calif_Sinodal1 === 'APROBADO' && calif_Sinodal2 === 'APROBADO' && calif_Sinodal3 === 'APROBADO') {
+                resultadoDictamen = 'APROBADO';
+            } else if (calif_Sinodal1 === 'NO APROBADO' || calif_Sinodal2 === 'NO APROBADO' || calif_Sinodal3 === 'NO APROBADO') {
+                resultadoDictamen = 'NO APROBADO';
+            }
+
+            // Crear dictamen
+            await connection.query(
+                `INSERT INTO Dictamen (id_protocolo, id_equipo, resultado) 
+                 VALUES (?, ?, ?)`, 
+                [protocoloId, equipoId, resultadoDictamen]
+            );
+
+            // Registrar cambio en la tabla ABC
+            await connection.query(
+                `INSERT INTO ABC (tabla_afectada, id_registro, cambio_realizado, usuario) 
+                 VALUES ('Dictamen', ?, ?, ?)`, 
+                [protocoloId, `Dictamen generado: ${resultadoDictamen}`, nombre_usuario]
+            );
+        }
+
         res.status(200).json({ 
             message: "Evaluación registrada con éxito.", 
             protocolo: {

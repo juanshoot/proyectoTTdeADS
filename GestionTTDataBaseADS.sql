@@ -282,6 +282,11 @@ SELECT * FROM EstadoRevision;
 SELECT * FROM Academia;
 SELECT * FROM ABC;
 
+UPDATE Protocolos
+SET calif_Sinodal2 = 'Pendiente'
+WHERE calif_Sinodal2 = 'APROBADO' 
+AND id_protocolo = '49' 
+AND id_equipo = '38';
 
 
 DELETE FROM Equipos WHERE id_equipo = 7;
@@ -373,7 +378,7 @@ SELECT * FROM Protocolos WHERE lider = "2025033811" OR titulo = "REAL MADRID" AN
 ALTER TABLE Protocolos 
 ADD COLUMN pdf VARCHAR(255) DEFAULT 'EN PROGRESO';
 
-DELETE FROM Docente_Protocolo
-WHERE id_docente = 3;
+DELETE FROM Evaluacion
+WHERE id_protocolo = 49;
 -- Inserta un equipo especial en Equipos
 

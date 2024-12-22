@@ -1,5 +1,6 @@
 const { request, response } = require("express");
 const { getConnection } = require("../../../models/sqlConnection"); 
+const { generarPdfCalificacion } = require("../../../helpers/generatePDF"); 
 const jwt = require("jsonwebtoken");
 
 const rateForm = async (req = request, res = response) => {
@@ -168,14 +169,21 @@ const rateForm = async (req = request, res = response) => {
                 [protocoloId, `Dictamen generado: ${resultadoDictamen}`, nombre_usuario]
             );
         }
+        // console.log(protocoloId,boleta);
 
-        res.status(200).json({ 
-            message: "Evaluación registrada con éxito.", 
-            protocolo: {
-                titulo: titulo_protocolo
-            }, 
-            calificacion: califValue 
-        });
+       // Generar PDF después de calificar
+       const pdfResponse = await generarPdfCalificacion(protocoloId, boleta);  // Generar el PDF
+
+       // Responder con el PDF o confirmación de éxito
+       res.status(200).json({ 
+           message: "Evaluación registrada con éxito y PDF generado.", 
+           protocolo: { 
+            titulo: titulo_protocolo ,
+            calificacion: califValue,
+            pdf: pdfResponse.pdf 
+         }
+
+       });
 
     } catch (error) {
         console.error(error);

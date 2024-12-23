@@ -1,7 +1,8 @@
 const { request, response } = require("express");
 const { getConnection } = require("../models/sqlConnection.js");
 const { jsPDF } = require("jspdf");
-const fs = require('fs');  // Para cargar las imágenes si es necesario
+const fs = require('fs');  // Para cargar las imágenes
+const path = require('path');
 
 const generarPDFcalificacion = async (req = request, res = response) => {
     const { id_protocolo, sinodal } = req.body;
@@ -18,22 +19,19 @@ const generarPDFcalificacion = async (req = request, res = response) => {
             return res.status(400).json({ message: 'No sabemos qué sinodal eres' });
         }
 
-        // Consulta para obtener los detalles del protocolo
-        const queryProtocolo = 
-            `SELECT 
+        // Consultas
+        const queryProtocolo = `
+            SELECT 
                 p.titulo AS titulo_protocolo, 
                 p.academia,
                 d.nombre AS sinodal_nombre, 
                 d.correo AS sinodal_correo
             FROM Protocolos p
             JOIN Docentes d ON (d.clave_empleado = ? AND (d.clave_empleado = p.sinodal_1 OR d.clave_empleado = p.sinodal_2 OR d.clave_empleado = p.sinodal_3))
-            WHERE p.id_protocolo = ?`
-            
-        ;
-    
+            WHERE p.id_protocolo = ?`;
+
         const [rowsProtocolo] = await connection.execute(queryProtocolo, [sinodal, id_protocolo]);
 
-        // Verificar si se encontró el protocolo
         if (rowsProtocolo.length === 0) {
             return res.status(404).json({
                 message: "No se encontró el protocolo o el sinodal no está asociado a este protocolo"
@@ -42,12 +40,11 @@ const generarPDFcalificacion = async (req = request, res = response) => {
 
         const protocoloData = rowsProtocolo[0];
 
-        // Consulta para obtener los detalles de la evaluación
-        const queryEvaluacion = 
-            `SELECT * 
+        const queryEvaluacion = `
+            SELECT * 
             FROM Evaluacion 
-            WHERE id_protocolo = ? AND sinodal = ? `
-        ;
+            WHERE id_protocolo = ? AND sinodal = ?`;
+
         const [rowsEvaluacion] = await connection.execute(queryEvaluacion, [id_protocolo, sinodal]);
 
         if (rowsEvaluacion.length === 0) {
@@ -62,30 +59,75 @@ const generarPDFcalificacion = async (req = request, res = response) => {
         const doc = new jsPDF();
         doc.setFontSize(10);
 
-        // Título y detalles generales
-        doc.text("Evaluación de Protocolos de Trabajo Terminal", 20, 20);
-        doc.text(`Fecha de Evaluación: ${new Date(data.fecha_evaluacion).toLocaleString()}`, 20, 30);
-        doc.text(`Sinodal: ${protocoloData.sinodal_nombre}`, 20, 40);
-        doc.text(`Correo del Sinodal: ${protocoloData.sinodal_correo}`, 20, 50);
-        doc.text(`Título del Protocolo:" ${protocoloData.titulo_protocolo}`, 20, 60);
-        doc.text(`Academia del Protocolo: ${protocoloData.academia}`, 20, 70);
 
-          // Función para agregar el encabezado en cada página
-          const addHeader = () => {
+         // Cargar imagen desde archivo (asegúrate de que sea PNG, JPG o JPEG)
+         const imgPath = path.resolve(__dirname, 'catt.png');
+         const imgData = fs.readFileSync(imgPath, { encoding: 'base64' }); // Convertir a Base64
+ 
+         // Función para agregar encabezado con imagen
+   
+        // Función para agregar el encabezado en cada página
+        const addHeader = () => {
+
+            doc.addImage(`data:image/png;base64,${imgData}`, 'PNG', 10, 10, 190, 20); // Ajusta posición y tamaño
             // Línea azul clara
             doc.setDrawColor(173, 216, 230); // Azul claro
             doc.setLineWidth(2);
             doc.line(10, 35, 200, 35); // Línea de la parte superior
         };
 
-        // Agregar encabezado en la primera página
+        // Agregar encabezado inicial
         addHeader();
 
-        let y = 80; // Comienza desde aquí el contenido de las preguntas
+        // Ajustar posición inicial para que el contenido quede debajo de la línea azul
+        let y = 45; // Justo debajo del encabezado
         const pageHeight = doc.internal.pageSize.height; // Altura de la página
         const margin = 20; // Margen de la hoja
         const lineHeight = 10; // Espaciado entre líneas de texto
 
+                // Información inicial
+        const titulo = `EVALUACIÓN DE PROTOCOLOS DE TRABAJO TERMINAL`;
+        const fechaEvaluacion = new Date(data.fecha_evaluacion).toLocaleDateString(); // Solo día, mes y año
+
+                // Centrando el título
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14); // Tamaño de fuente para título
+        const pageWidth = doc.internal.pageSize.width; // Ancho de la página
+        const textWidth = doc.getTextWidth(titulo); // Ancho del texto
+        const titleX = (pageWidth - textWidth) / 2; // Posición X centrada
+        doc.text(titulo, titleX, y); // `y` es la posición actual
+        y += 10; // Ajustar espacio después del título
+
+        // Fecha de evaluación
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Fecha de Evaluación: ${fechaEvaluacion}`, 20, y);
+        y += 10; // Espacio después de la fecha
+
+
+
+        // Resto de la información inicial
+        let infoInicial = [
+            `Sinodal: ${protocoloData.sinodal_nombre}`,
+            `Correo del Sinodal: ${protocoloData.sinodal_correo}`,
+            `Título del Protocolo: ${protocoloData.titulo_protocolo}`,
+            `Academia del Protocolo: ${protocoloData.academia}`
+        ];
+    
+
+        infoInicial.forEach((text) => {
+            doc.text(text, 20, y);
+            y += lineHeight;
+
+            // Verificar si se necesita una nueva página
+            if (y > pageHeight - margin) {
+                doc.addPage();
+                addHeader();
+                y = 40; // Reiniciar posición justo debajo del encabezado
+            }
+        });
+
+        // Preguntas y respuestas
         const questions = [
             { question: "1 ¿El título corresponde al producto esperado?", value: data.titulo_corresponde_producto },
             { question: "Observaciones", value: data.observaciones_1 },
@@ -111,44 +153,35 @@ const generarPDFcalificacion = async (req = request, res = response) => {
             { question: "Recomendaciones adicionales", value: data.recomendaciones_adicionales }
         ];
 
-        // Loop a través de las preguntas y respuestas
-        questions.forEach((item, index) => {
-            // Pregunta en azul
-            doc.setTextColor(0, 0, 255); // Azul
+        questions.forEach((item) => {
+            doc.setTextColor(100, 150, 230); // Azul más oscuro pero aún claro 
             doc.text(item.question, 20, y);
-            doc.setTextColor(0, 0, 0); // Volver al negro
-
-            // Añadir el valor en negritas
+            doc.setTextColor(0, 0, 0); // Negro
             doc.setFont("helvetica", "bold");
             doc.text(item.value || "N/A", 20, y + lineHeight);
             doc.setFont("helvetica", "normal");
+            y += lineHeight * 2;
 
-            y += lineHeight * 2; // Incrementar la posición Y para la siguiente línea
-
-          // Si el contenido se pasa de la altura de la página, agregamos una nueva página
+            // Verificar si se necesita una nueva página
             if (y > pageHeight - margin) {
                 doc.addPage();
-                y = margin; // Resetear la posición Y al inicio de la nueva página
-
-                // Repetir el encabezado en la nueva página
                 addHeader();
+                y = 40; // Reiniciar posición justo debajo del encabezado
             }
         });
 
-        // Generar el PDF en formato Base64
-        const pdfBase64 = doc.output("datauristring");
+        // Guardar el archivo con el nombre adecuado
+        const sinodalNombre = protocoloData.sinodal_nombre.replace(/\s+/g, '_'); // Reemplazar espacios por guiones bajos
+        const pdfPath = path.resolve(__dirname, `CalificacionSinodal(${sinodalNombre}).pdf`);
+        doc.save(pdfPath); // Guardar el archivo en el servidor
 
-        // Enviar el PDF como respuesta en Base64
-        return res.json({
-            pdf: pdfBase64
-        });
-
+        // Retornar la ruta del archivo generado
+        return res.json({ message: "PDF generado y guardado exitosamente", filePath: pdfPath });
+        
     } catch (err) {
         console.error(err);
         return res.status(500).json({ message: "Error al generar el PDF" });
     }
 };
 
-module.exports = {
-    generarPDFcalificacion,
-};
+module.exports = { generarPDFcalificacion };

@@ -2,6 +2,8 @@ const { request, response } = require("express");
 const { getConnection } = require("../../../models/sqlConnection"); 
 const { generarPdfCalificacion } = require("../../../helpers/generatePDF"); 
 const jwt = require("jsonwebtoken");
+const path = require('path');
+
 
 const rateForm = async (req = request, res = response) => {
     try {
@@ -180,7 +182,7 @@ const rateForm = async (req = request, res = response) => {
            protocolo: { 
             titulo: titulo_protocolo ,
             calificacion: califValue,
-            pdf: pdfResponse.pdf 
+            filePath: pdfResponse
          }
 
        });

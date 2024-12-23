@@ -3,6 +3,7 @@ const { getConnection } = require("../models/sqlConnection.js");
 const { jsPDF } = require("jspdf");
 const fs = require('fs');  // Para cargar las imágenes
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const generarPDFcalificacion = async (req = request, res = response) => {
     const { id_protocolo, sinodal } = req.body;
@@ -41,9 +42,11 @@ const generarPDFcalificacion = async (req = request, res = response) => {
         const protocoloData = rowsProtocolo[0];
 
         const queryEvaluacion = `
-            SELECT * 
-            FROM Evaluacion 
-            WHERE id_protocolo = ? AND sinodal = ?`;
+               SELECT * 
+                FROM Evaluacion 
+                WHERE id_protocolo = ? AND sinodal = ?
+                ORDER BY fecha_evaluacion DESC
+                LIMIT 1`;
 
         const [rowsEvaluacion] = await connection.execute(queryEvaluacion, [id_protocolo, sinodal]);
 
@@ -170,13 +173,10 @@ const generarPDFcalificacion = async (req = request, res = response) => {
             }
         });
 
-        // Guardar el archivo con el nombre adecuado
-        const sinodalNombre = protocoloData.sinodal_nombre.replace(/\s+/g, '_'); // Reemplazar espacios por guiones bajos
-        const pdfPath = path.resolve(__dirname, `CalificacionSinodal(${sinodalNombre}).pdf`);
-        doc.save(pdfPath); // Guardar el archivo en el servidor
+            // Generar el PDF en formato Base64
+            const pdfBase64 = doc.output("datauristring");
 
-        // Retornar la ruta del archivo generado
-        return res.json({ message: "PDF generado y guardado exitosamente", filePath: pdfPath });
+            return res.json({ pdf: pdfBase64 });
         
     } catch (err) {
         console.error(err);

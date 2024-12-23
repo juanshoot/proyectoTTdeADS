@@ -182,7 +182,7 @@ const rateForm = async (req = request, res = response) => {
            protocolo: { 
             titulo: titulo_protocolo ,
             calificacion: califValue,
-            filePath: pdfResponse
+            pdf: pdfResponse.pdf
          }
 
        });

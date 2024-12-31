@@ -1,4 +1,3 @@
-// Navbar.js
 import {
 	Box,
 	Flex,
@@ -10,6 +9,7 @@ import {
 	MenuList,
 	MenuItem,
 	IconButton,
+	Image,
 } from '@chakra-ui/react';
 import { HamburgerIcon } from '@chakra-ui/icons';
 
@@ -24,11 +24,14 @@ const Navbar = () => {
 			color="white"
 			boxShadow="md"
 		>
-			<Box
-				fontWeight="bold"
-				fontSize="xl"
-			>
-				Gestión TT
+			<Box>
+				{/* Reemplazar "Gestión TT" por una imagen */}
+				<Image
+					src="/images/CATT.jpeg" // Ruta de la imagen
+					alt="CATT"
+					boxSize="60px" // Tamaño de la imagen
+					objectFit="cover"
+				/>
 			</Box>
 			<Spacer />
 

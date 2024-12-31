@@ -291,6 +291,8 @@ AND id_equipo = '38';
 
 DELETE FROM Equipos WHERE id_equipo = 7;
 
+DELETE FROM Evaluacion WHERE id_protocolo = 49;
+
 DELETE FROM Equipos WHERE estado = 'B';
 DELETE FROM Protocolos WHERE estatus = 'A';
 DELETE FROM Docente_Protocolo WHERE estatus = 'A';

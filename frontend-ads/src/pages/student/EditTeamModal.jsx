@@ -27,7 +27,7 @@ const EditTeamModal = ({ teamData, onSave }) => {
 		director: teamData?.director || '',
 		director_2: teamData?.director_2 || '',
 		academia: teamData?.academia || '',
-		integrantes_boletas: teamData?.integrantes_boletas || ['', ''], // Mínimo dos integrantes
+		integrantes_boletas: teamData?.integrantes_boletas || [''], // Mínimo dos integrantes
 		lider: teamData?.lider || '',
 	});
 
@@ -128,17 +128,6 @@ const EditTeamModal = ({ teamData, onSave }) => {
 									value={formData.director_2}
 									onChange={(e) =>
 										handleInputChange('director_2', e.target.value)
-									}
-								/>
-							</FormControl>
-
-							<FormControl>
-								<FormLabel>Academia</FormLabel>
-								<Input
-									placeholder="Academia"
-									value={formData.academia}
-									onChange={(e) =>
-										handleInputChange('academia', e.target.value)
 									}
 								/>
 							</FormControl>

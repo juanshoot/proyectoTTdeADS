@@ -14,7 +14,7 @@ import {
 import { HamburgerIcon } from '@chakra-ui/icons';
 
 const Navbar = () => {
-	const userRole = 'student'; // Cambiar dinámicamente según el rol del usuario
+	const userRole = 'student'; // Cambiar el rol del usuario
 
 	return (
 		<Flex

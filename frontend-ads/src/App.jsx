@@ -2,13 +2,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import DashboardAdmin from './pages/DashboardAdmin';
-import UsersPage from './pages/UsersPage';
-import TeamsPage from './pages/TeamsPage';
-import AssignJudgesPage from './pages/AssignJudgesPage';
-import EvaluationsPage from './pages/EvaluationsPage';
-import DashboardStudent from './pages/DashboardStudent';
-import TeamFormPage from './pages/TeamFormPage';
+import DashboardAdmin from './pages/admin/DashboardAdmin';
+import UsersPage from './pages/admin/UsersPage';
+import TeamsPage from './pages/admin/TeamsPage';
+import AssignJudgesPage from './pages/admin/AssignJudgesPage';
+import EvaluationsPage from './pages/admin/EvaluationsPage';
+import DashboardStudent from './pages/student/DashboardStudent';
+import TeamFormPage from './pages/student/TeamFormPage';
 
 const App = () => {
 	return (

@@ -88,13 +88,13 @@ const DashboardAdmin = () => {
 				>
 					Distribución de Protocolos
 				</Heading>
-				<PieChart
+				{/* <PieChart
 					data={[
 						{ title: 'Aprobados', value: 30, color: '#38A169' },
 						{ title: 'Rechazados', value: 10, color: '#E53E3E' },
 						{ title: 'Pendientes', value: 50, color: '#D69E2E' },
 					]}
-				/>
+				/> */}
 			</Box>
 		</Box>
 	);

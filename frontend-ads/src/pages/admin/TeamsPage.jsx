@@ -20,50 +20,57 @@ import {
 	useDisclosure,
 	useToast,
 	VStack,
+	Divider,
+	Text,
 } from '@chakra-ui/react';
 import { useState } from 'react';
 
-const TeamsPage = () => {
+const TeamsAndProtocolsPage = () => {
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const toast = useToast();
 	const [editing, setEditing] = useState(false);
-	const [teamData, setTeamData] = useState({
+	const [data, setData] = useState({
 		nombre_equipo: '',
+		integrantes_boletas: ['', ''],
+		lider: '',
 		titulo: '',
 		director: '',
 		director_2: '',
 		academia: '',
-		integrantes_boletas: ['', ''], // Mínimo dos integrantes
-		lider: '',
+		pdf: null,
 	});
-	const [teams, setTeams] = useState([
+	const [records, setRecords] = useState([
 		{
 			id: 1,
-			nombre_equipo: 'Equipo Alpha',
+			nombre_equipo: 'Equipo ADS',
 			lider: '2025033811',
 			titulo: 'Campeones 2024',
-			director: '0000000002',
+			director: 'Regina',
 			director_2: '',
-			academia: 'ISC',
+			academia: 'Electrónica',
 			integrantes_boletas: ['2025033811', '2025000000'],
 		},
-	]); // Simulación de equipos
+	]);
 
 	const handleInputChange = (key, value) => {
-		setTeamData({ ...teamData, [key]: value });
+		setData({ ...data, [key]: value });
+	};
+
+	const handleFileChange = (file) => {
+		setData({ ...data, pdf: file });
 	};
 
 	const handleMemberChange = (index, value) => {
-		const updatedMembers = [...teamData.integrantes_boletas];
+		const updatedMembers = [...data.integrantes_boletas];
 		updatedMembers[index] = value;
-		setTeamData({ ...teamData, integrantes_boletas: updatedMembers });
+		setData({ ...data, integrantes_boletas: updatedMembers });
 	};
 
 	const handleAddMember = () => {
-		if (teamData.integrantes_boletas.length < 5) {
-			setTeamData({
-				...teamData,
-				integrantes_boletas: [...teamData.integrantes_boletas, ''],
+		if (data.integrantes_boletas.length < 5) {
+			setData({
+				...data,
+				integrantes_boletas: [...data.integrantes_boletas, ''],
 			});
 		} else {
 			toast({
@@ -77,14 +84,14 @@ const TeamsPage = () => {
 	};
 
 	const handleSave = () => {
-		const updatedTeams = editing
-			? teams.map((team) => (team.id === teamData.id ? teamData : team))
-			: [...teams, { ...teamData, id: teams.length + 1 }];
+		const updatedRecords = editing
+			? records.map((record) => (record.id === data.id ? data : record))
+			: [...records, { ...data, id: records.length + 1 }];
 
-		setTeams(updatedTeams);
+		setRecords(updatedRecords);
 
 		toast({
-			title: editing ? 'Equipo actualizado.' : 'Equipo creado.',
+			title: editing ? 'Registro actualizado.' : 'Registro creado.',
 			description: 'La operación se realizó exitosamente.',
 			status: 'success',
 			duration: 5000,
@@ -104,19 +111,20 @@ const TeamsPage = () => {
 				mb={4}
 				onClick={() => {
 					setEditing(false);
-					setTeamData({
+					setData({
 						nombre_equipo: '',
+						integrantes_boletas: [''],
+						lider: '',
 						titulo: '',
 						director: '',
 						director_2: '',
 						academia: '',
-						integrantes_boletas: ['', ''], // Reiniciar a dos integrantes
-						lider: '',
+						pdf: null,
 					});
 					onOpen();
 				}}
 			>
-				Crear Equipo
+				Crear Registro
 			</Button>
 
 			<Table
@@ -138,15 +146,15 @@ const TeamsPage = () => {
 					</Tr>
 				</Thead>
 				<Tbody>
-					{teams.map((team) => (
-						<Tr key={team.id}>
-							<Td>{team.nombre_equipo}</Td>
-							<Td>{team.lider}</Td>
-							<Td>{team.titulo}</Td>
-							<Td>{team.director}</Td>
-							<Td>{team.director_2 || 'N/A'}</Td>
-							<Td>{team.academia}</Td>
-							<Td>{team.integrantes_boletas.join(', ')}</Td>
+					{records.map((record) => (
+						<Tr key={record.id}>
+							<Td>{record.nombre_equipo}</Td>
+							<Td>{record.lider}</Td>
+							<Td>{record.titulo}</Td>
+							<Td>{record.director}</Td>
+							<Td>{record.director_2 || 'N/A'}</Td>
+							<Td>{record.academia}</Td>
+							<Td>{record.integrantes_boletas.join(', ')}</Td>
 							<Td>
 								<Button
 									colorScheme="yellow"
@@ -154,7 +162,7 @@ const TeamsPage = () => {
 									mr={2}
 									onClick={() => {
 										setEditing(true);
-										setTeamData(team);
+										setData(record);
 										onOpen();
 									}}
 								>
@@ -172,7 +180,7 @@ const TeamsPage = () => {
 				</Tbody>
 			</Table>
 
-			{/* Modal para agregar/editar equipo */}
+			{/* Modal para agregar/editar registro */}
 			<Modal
 				isOpen={isOpen}
 				onClose={onClose}
@@ -180,7 +188,7 @@ const TeamsPage = () => {
 				<ModalOverlay />
 				<ModalContent>
 					<ModalHeader>
-						{editing ? 'Editar Equipo' : 'Crear Equipo'}
+						{editing ? 'Editar Registro' : 'Crear Registro'}
 					</ModalHeader>
 					<ModalBody>
 						<VStack
@@ -190,7 +198,7 @@ const TeamsPage = () => {
 							<FormControl>
 								<FormLabel>Nombre del Equipo</FormLabel>
 								<Input
-									value={teamData.nombre_equipo}
+									value={data.nombre_equipo}
 									onChange={(e) =>
 										handleInputChange('nombre_equipo', e.target.value)
 									}
@@ -201,7 +209,7 @@ const TeamsPage = () => {
 							<FormControl>
 								<FormLabel>Título del Protocolo</FormLabel>
 								<Input
-									value={teamData.titulo}
+									value={data.titulo}
 									onChange={(e) => handleInputChange('titulo', e.target.value)}
 									placeholder="Ingrese el título del protocolo"
 								/>
@@ -210,7 +218,7 @@ const TeamsPage = () => {
 							<FormControl>
 								<FormLabel>Director</FormLabel>
 								<Input
-									value={teamData.director}
+									value={data.director}
 									onChange={(e) =>
 										handleInputChange('director', e.target.value)
 									}
@@ -221,7 +229,7 @@ const TeamsPage = () => {
 							<FormControl>
 								<FormLabel>Director 2 (Opcional)</FormLabel>
 								<Input
-									value={teamData.director_2}
+									value={data.director_2}
 									onChange={(e) =>
 										handleInputChange('director_2', e.target.value)
 									}
@@ -232,7 +240,7 @@ const TeamsPage = () => {
 							<FormControl>
 								<FormLabel>Academia</FormLabel>
 								<Input
-									value={teamData.academia}
+									value={data.academia}
 									onChange={(e) =>
 										handleInputChange('academia', e.target.value)
 									}
@@ -242,7 +250,7 @@ const TeamsPage = () => {
 
 							<FormControl>
 								<FormLabel>Miembros del Equipo</FormLabel>
-								{teamData.integrantes_boletas.map((member, index) => (
+								{data.integrantes_boletas.map((member, index) => (
 									<Input
 										key={index}
 										placeholder={`Boleta Miembro ${index + 1}`}
@@ -261,21 +269,12 @@ const TeamsPage = () => {
 							</FormControl>
 
 							<FormControl>
-								<FormLabel>Líder del Equipo</FormLabel>
-								<Select
-									placeholder="Seleccione al líder"
-									value={teamData.lider}
-									onChange={(e) => handleInputChange('lider', e.target.value)}
-								>
-									{teamData.integrantes_boletas.map((member, index) => (
-										<option
-											key={index}
-											value={member}
-										>
-											{member || `Boleta Miembro ${index + 1}`}
-										</option>
-									))}
-								</Select>
+								<FormLabel>Archivo PDF</FormLabel>
+								<Input
+									type="file"
+									accept="application/pdf"
+									onChange={(e) => handleFileChange(e.target.files[0])}
+								/>
 							</FormControl>
 						</VStack>
 					</ModalBody>
@@ -299,4 +298,4 @@ const TeamsPage = () => {
 	);
 };
 
-export default TeamsPage;
+export default TeamsAndProtocolsPage;

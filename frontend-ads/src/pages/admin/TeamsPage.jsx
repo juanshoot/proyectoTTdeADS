@@ -16,16 +16,13 @@ import {
 	FormControl,
 	FormLabel,
 	Input,
-	Select,
 	useDisclosure,
 	useToast,
 	VStack,
-	Divider,
-	Text,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-const TeamsAndProtocolsPage = () => {
+const TeamsPage = () => {
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const toast = useToast();
 	const [editing, setEditing] = useState(false);
@@ -37,68 +34,178 @@ const TeamsAndProtocolsPage = () => {
 		director: '',
 		director_2: '',
 		academia: '',
-		pdf: null,
 	});
-	const [records, setRecords] = useState([
-		{
-			id: 1,
-			nombre_equipo: 'Equipo ADS',
-			lider: '2025033811',
-			titulo: 'Campeones 2024',
-			director: 'Regina',
-			director_2: '',
-			academia: 'Electrónica',
-			integrantes_boletas: ['2025033811', '2025000000'],
-		},
-	]);
+	const [teams, setTeams] = useState([]);
+	const [filteredTeams, setFilteredTeams] = useState([]);
+	const [filters, setFilters] = useState({
+		nombre_equipo: '',
+		lider: '',
+		titulo: '',
+	});
 
-	const handleInputChange = (key, value) => {
-		setData({ ...data, [key]: value });
-	};
-
-	const handleFileChange = (file) => {
-		setData({ ...data, pdf: file });
-	};
-
-	const handleMemberChange = (index, value) => {
-		const updatedMembers = [...data.integrantes_boletas];
-		updatedMembers[index] = value;
-		setData({ ...data, integrantes_boletas: updatedMembers });
-	};
-
-	const handleAddMember = () => {
-		if (data.integrantes_boletas.length < 5) {
-			setData({
-				...data,
-				integrantes_boletas: [...data.integrantes_boletas, ''],
+	// Obtener equipos desde el backend
+	const fetchTeams = async () => {
+		try {
+			const response = await fetch('/api/consult-team', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify(filters),
 			});
-		} else {
+			const result = await response.json();
+
+			if (response.ok) {
+				setTeams(result.equipos || []);
+				setFilteredTeams(result.equipos || []);
+			} else {
+				toast({
+					title: 'Error al cargar equipos',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
 			toast({
-				title: 'Máximo alcanzado.',
-				description: 'Solo se permiten hasta 5 miembros en el equipo.',
-				status: 'warning',
+				title: 'Error del servidor',
+				description: 'No se pudieron cargar los equipos.',
+				status: 'error',
 				duration: 3000,
 				isClosable: true,
 			});
 		}
 	};
 
-	const handleSave = () => {
-		const updatedRecords = editing
-			? records.map((record) => (record.id === data.id ? data : record))
-			: [...records, { ...data, id: records.length + 1 }];
+	// Guardar equipo (nuevo o actualizado)
+	const handleSave = async () => {
+		try {
+			const endpoint = editing ? '/api/update-team' : '/api/new-team';
+			const response = await fetch(endpoint, {
+				method: editing ? 'PUT' : 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify(data),
+			});
+			const result = await response.json();
 
-		setRecords(updatedRecords);
-
-		toast({
-			title: editing ? 'Registro actualizado.' : 'Registro creado.',
-			description: 'La operación se realizó exitosamente.',
-			status: 'success',
-			duration: 5000,
-			isClosable: true,
-		});
-		onClose();
+			if (response.ok) {
+				toast({
+					title: editing ? 'Equipo actualizado.' : 'Equipo creado.',
+					description: 'La operación se realizó exitosamente.',
+					status: 'success',
+					duration: 3000,
+					isClosable: true,
+				});
+				fetchTeams();
+				onClose();
+			} else {
+				toast({
+					title: 'Error',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
+			toast({
+				title: 'Error del servidor',
+				description: 'No se pudo guardar el equipo.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
 	};
+
+	// Eliminar equipo
+	const handleDelete = async (id, nombre_equipo, lider) => {
+		try {
+			const response = await fetch('/api/delete-team', {
+				method: 'DELETE',
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify({ lider, nombre_equipo }),
+			});
+			const result = await response.json();
+
+			if (response.ok) {
+				toast({
+					title: 'Equipo eliminado.',
+					description: `El equipo ${nombre_equipo} ha sido eliminado.`,
+					status: 'success',
+					duration: 3000,
+					isClosable: true,
+				});
+				fetchTeams();
+			} else {
+				toast({
+					title: 'Error',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
+			toast({
+				title: 'Error del servidor',
+				description: 'No se pudo eliminar el equipo.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
+	};
+
+	// Filtrar equipos localmente
+	const handleFilter = () => {
+		let results = teams;
+
+		if (filters.nombre_equipo) {
+			results = results.filter((team) =>
+				team.nombre_equipo
+					.toLowerCase()
+					.includes(filters.nombre_equipo.toLowerCase())
+			);
+		}
+
+		if (filters.lider) {
+			results = results.filter((team) =>
+				team.lider.toLowerCase().includes(filters.lider.toLowerCase())
+			);
+		}
+
+		if (filters.titulo) {
+			results = results.filter((team) =>
+				team.titulo.toLowerCase().includes(filters.titulo.toLowerCase())
+			);
+		}
+
+		setFilteredTeams(results);
+
+		if (results.length === 0) {
+			toast({
+				title: 'Sin resultados',
+				description: 'No se encontraron equipos con los filtros aplicados.',
+				status: 'info',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
+	};
+
+	// Cargar equipos al montar el componente
+	useEffect(() => {
+		fetchTeams();
+	}, []);
 
 	return (
 		<Box
@@ -106,27 +213,57 @@ const TeamsAndProtocolsPage = () => {
 			bg="#EDF2F7"
 			minH="100vh"
 		>
+			{/* Filtros */}
+			<Box mb={4}>
+				<Input
+					placeholder="Filtrar por nombre del equipo"
+					value={filters.nombre_equipo}
+					onChange={(e) =>
+						setFilters({ ...filters, nombre_equipo: e.target.value })
+					}
+					mb={2}
+				/>
+				<Input
+					placeholder="Filtrar por líder"
+					value={filters.lider}
+					onChange={(e) => setFilters({ ...filters, lider: e.target.value })}
+					mb={2}
+				/>
+				<Input
+					placeholder="Filtrar por título"
+					value={filters.titulo}
+					onChange={(e) => setFilters({ ...filters, titulo: e.target.value })}
+					mb={4}
+				/>
+				<Button
+					colorScheme="blue"
+					onClick={handleFilter}
+				>
+					Aplicar Filtros
+				</Button>
+			</Box>
+
 			<Button
-				colorScheme="blue"
+				colorScheme="green"
 				mb={4}
 				onClick={() => {
 					setEditing(false);
 					setData({
 						nombre_equipo: '',
-						integrantes_boletas: [''],
+						integrantes_boletas: ['', ''],
 						lider: '',
 						titulo: '',
 						director: '',
 						director_2: '',
 						academia: '',
-						pdf: null,
 					});
 					onOpen();
 				}}
 			>
-				Crear Registro
+				Crear Equipo
 			</Button>
 
+			{/* Tabla de equipos */}
 			<Table
 				variant="simple"
 				bg="white"
@@ -141,20 +278,18 @@ const TeamsAndProtocolsPage = () => {
 						<Th>Director</Th>
 						<Th>Director 2</Th>
 						<Th>Academia</Th>
-						<Th>Miembros</Th>
 						<Th>Acciones</Th>
 					</Tr>
 				</Thead>
 				<Tbody>
-					{records.map((record) => (
-						<Tr key={record.id}>
-							<Td>{record.nombre_equipo}</Td>
-							<Td>{record.lider}</Td>
-							<Td>{record.titulo}</Td>
-							<Td>{record.director}</Td>
-							<Td>{record.director_2 || 'N/A'}</Td>
-							<Td>{record.academia}</Td>
-							<Td>{record.integrantes_boletas.join(', ')}</Td>
+					{filteredTeams.map((team) => (
+						<Tr key={team.id_equipo}>
+							<Td>{team.nombre_equipo}</Td>
+							<Td>{team.lider}</Td>
+							<Td>{team.titulo}</Td>
+							<Td>{team.director}</Td>
+							<Td>{team.director_2 || 'N/A'}</Td>
+							<Td>{team.academia}</Td>
 							<Td>
 								<Button
 									colorScheme="yellow"
@@ -162,7 +297,7 @@ const TeamsAndProtocolsPage = () => {
 									mr={2}
 									onClick={() => {
 										setEditing(true);
-										setData(record);
+										setData(team);
 										onOpen();
 									}}
 								>
@@ -171,6 +306,9 @@ const TeamsAndProtocolsPage = () => {
 								<Button
 									colorScheme="red"
 									size="sm"
+									onClick={() =>
+										handleDelete(team.id_equipo, team.nombre_equipo, team.lider)
+									}
 								>
 									Eliminar
 								</Button>
@@ -180,7 +318,7 @@ const TeamsAndProtocolsPage = () => {
 				</Tbody>
 			</Table>
 
-			{/* Modal para agregar/editar registro */}
+			{/* Modal para agregar/editar equipo */}
 			<Modal
 				isOpen={isOpen}
 				onClose={onClose}
@@ -188,7 +326,7 @@ const TeamsAndProtocolsPage = () => {
 				<ModalOverlay />
 				<ModalContent>
 					<ModalHeader>
-						{editing ? 'Editar Registro' : 'Crear Registro'}
+						{editing ? 'Editar Equipo' : 'Crear Equipo'}
 					</ModalHeader>
 					<ModalBody>
 						<VStack
@@ -200,80 +338,55 @@ const TeamsAndProtocolsPage = () => {
 								<Input
 									value={data.nombre_equipo}
 									onChange={(e) =>
-										handleInputChange('nombre_equipo', e.target.value)
+										setData({ ...data, nombre_equipo: e.target.value })
 									}
 									placeholder="Ingrese el nombre del equipo"
 								/>
 							</FormControl>
-
 							<FormControl>
-								<FormLabel>Título del Protocolo</FormLabel>
+								<FormLabel>Líder</FormLabel>
 								<Input
-									value={data.titulo}
-									onChange={(e) => handleInputChange('titulo', e.target.value)}
-									placeholder="Ingrese el título del protocolo"
+									value={data.lider}
+									onChange={(e) => setData({ ...data, lider: e.target.value })}
+									placeholder="Ingrese el líder del equipo"
 								/>
 							</FormControl>
-
+							<FormControl>
+								<FormLabel>Título</FormLabel>
+								<Input
+									value={data.titulo}
+									onChange={(e) => setData({ ...data, titulo: e.target.value })}
+									placeholder="Ingrese el título del equipo"
+								/>
+							</FormControl>
 							<FormControl>
 								<FormLabel>Director</FormLabel>
 								<Input
 									value={data.director}
 									onChange={(e) =>
-										handleInputChange('director', e.target.value)
+										setData({ ...data, director: e.target.value })
 									}
-									placeholder="Ingrese el nombre del director"
+									placeholder="Ingrese el director del equipo"
 								/>
 							</FormControl>
-
 							<FormControl>
-								<FormLabel>Director 2 (Opcional)</FormLabel>
+								<FormLabel>Director 2</FormLabel>
 								<Input
 									value={data.director_2}
 									onChange={(e) =>
-										handleInputChange('director_2', e.target.value)
+										setData({ ...data, director_2: e.target.value })
 									}
-									placeholder="Ingrese el nombre del segundo director"
+									placeholder="Ingrese el segundo director del equipo"
 								/>
 							</FormControl>
-
 							<FormControl>
 								<FormLabel>Academia</FormLabel>
 								<Input
 									value={data.academia}
 									onChange={(e) =>
-										handleInputChange('academia', e.target.value)
+										setData({ ...data, academia: e.target.value })
 									}
 									placeholder="Ingrese la academia"
-								/>
-							</FormControl>
-
-							<FormControl>
-								<FormLabel>Miembros del Equipo</FormLabel>
-								{data.integrantes_boletas.map((member, index) => (
-									<Input
-										key={index}
-										placeholder={`Boleta Miembro ${index + 1}`}
-										value={member}
-										onChange={(e) => handleMemberChange(index, e.target.value)}
-										mb={2}
-									/>
-								))}
-								<Button
-									onClick={handleAddMember}
-									colorScheme="blue"
-									mt={2}
-								>
-									Añadir Miembro
-								</Button>
-							</FormControl>
-
-							<FormControl>
-								<FormLabel>Archivo PDF</FormLabel>
-								<Input
-									type="file"
-									accept="application/pdf"
-									onChange={(e) => handleFileChange(e.target.files[0])}
 								/>
 							</FormControl>
 						</VStack>
@@ -298,4 +411,4 @@ const TeamsAndProtocolsPage = () => {
 	);
 };
 
-export default TeamsAndProtocolsPage;
+export default TeamsPage;

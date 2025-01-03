@@ -18,6 +18,13 @@ import EditProtocolModal from './EditProtocolModal';
 import DeleteProtocolButton from './DeleteProtocolButton';
 
 const DashboardStudent = () => {
+	// Datos simulados del usuario
+	const userData = {
+		nombre: 'Juan Pérez',
+		boleta: '202300001',
+		correo: 'juan.perez@example.com',
+	};
+
 	return (
 		<Box
 			bg="#EDF2F7"
@@ -104,10 +111,10 @@ const DashboardStudent = () => {
 					</CardHeader>
 					<CardBody p={4}>
 						<Text fontWeight="bold">Nombre:</Text>
-						<Text mb={2}>Juan Pérez</Text>
+						<Text mb={2}>{userData.nombre}</Text>
 
 						<Text fontWeight="bold">Boleta:</Text>
-						<Text mb={2}>202300001</Text>
+						<Text mb={2}>{userData.boleta}</Text>
 
 						<Text fontWeight="bold">Estado:</Text>
 						<Text
@@ -122,8 +129,8 @@ const DashboardStudent = () => {
 							mt={4}
 							justify="space-between"
 						>
-							<EditProfileModal />
-							<DeleteProfileButton />
+							<EditProfileModal userData={userData} />
+							{/* Otros botones */}
 						</Flex>
 					</CardBody>
 				</Card>

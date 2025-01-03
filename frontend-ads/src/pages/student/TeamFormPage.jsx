@@ -19,28 +19,17 @@ const TeamFormPage = ({ onCreate }) => {
 		nombre_equipo: '',
 		integrantes_boletas: [''], // Mínimo dos integrantes
 		lider: '',
-	});
-
-	const [protocolData, setProtocolData] = useState({
-		titulo: '',
-		director: '',
-		director_2: '',
-		academia: '',
-		pdf: null, // Archivo PDF del protocolo
+		titulo: '', // Agregado para `createProtocol`
+		academia: '', // Agregado para `createProtocol`
+		director: '', // Director principal
+		director_2: '', // Segundo director (opcional)
 	});
 
 	const toast = useToast();
 
-	const handleTeamInputChange = (key, value) => {
+	// Manejo de cambios en los campos
+	const handleInputChange = (key, value) => {
 		setTeamData({ ...teamData, [key]: value });
-	};
-
-	const handleProtocolInputChange = (key, value) => {
-		setProtocolData({ ...protocolData, [key]: value });
-	};
-
-	const handlePDFUpload = (file) => {
-		setProtocolData({ ...protocolData, pdf: file });
 	};
 
 	const handleMemberChange = (index, value) => {
@@ -67,7 +56,20 @@ const TeamFormPage = ({ onCreate }) => {
 	};
 
 	const handleSubmit = () => {
-		onCreate({ teamData, protocolData }); // Callback para crear el equipo y protocolo
+		// Validar los campos antes de enviar
+		if (!teamData.nombre_equipo || !teamData.titulo || !teamData.academia) {
+			toast({
+				title: 'Error',
+				description: 'Los campos obligatorios no pueden estar vacíos.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+			return;
+		}
+
+		// Enviar los datos al callback
+		onCreate(teamData);
 
 		toast({
 			title: 'Equipo y protocolo creados',
@@ -123,9 +125,7 @@ const TeamFormPage = ({ onCreate }) => {
 					<Input
 						placeholder="Ingrese el nombre del equipo"
 						value={teamData.nombre_equipo}
-						onChange={(e) =>
-							handleTeamInputChange('nombre_equipo', e.target.value)
-						}
+						onChange={(e) => handleInputChange('nombre_equipo', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					/>
 				</FormControl>
@@ -166,7 +166,7 @@ const TeamFormPage = ({ onCreate }) => {
 					<Select
 						placeholder="Seleccione al líder"
 						value={teamData.lider}
-						onChange={(e) => handleTeamInputChange('lider', e.target.value)}
+						onChange={(e) => handleInputChange('lider', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					>
 						{teamData.integrantes_boletas.map((member, index) => (
@@ -200,10 +200,8 @@ const TeamFormPage = ({ onCreate }) => {
 					</FormLabel>
 					<Input
 						placeholder="Ingrese el título del protocolo"
-						value={protocolData.titulo}
-						onChange={(e) =>
-							handleProtocolInputChange('titulo', e.target.value)
-						}
+						value={teamData.titulo}
+						onChange={(e) => handleInputChange('titulo', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					/>
 				</FormControl>
@@ -216,11 +214,9 @@ const TeamFormPage = ({ onCreate }) => {
 						Director
 					</FormLabel>
 					<Input
-						placeholder="Ingrese el nombre del director"
-						value={protocolData.director}
-						onChange={(e) =>
-							handleProtocolInputChange('director', e.target.value)
-						}
+						placeholder="Ingrese la clave del director"
+						value={teamData.director}
+						onChange={(e) => handleInputChange('director', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					/>
 				</FormControl>
@@ -233,11 +229,9 @@ const TeamFormPage = ({ onCreate }) => {
 						Director 2 (Opcional)
 					</FormLabel>
 					<Input
-						placeholder="Ingrese el nombre del segundo director"
-						value={protocolData.director_2}
-						onChange={(e) =>
-							handleProtocolInputChange('director_2', e.target.value)
-						}
+						placeholder="Ingrese la clave del segundo director"
+						value={teamData.director_2}
+						onChange={(e) => handleInputChange('director_2', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					/>
 				</FormControl>
@@ -251,25 +245,8 @@ const TeamFormPage = ({ onCreate }) => {
 					</FormLabel>
 					<Input
 						placeholder="Ingrese el área o academia"
-						value={protocolData.academia}
-						onChange={(e) =>
-							handleProtocolInputChange('academia', e.target.value)
-						}
-						focusBorderColor="#2B6CB0"
-					/>
-				</FormControl>
-
-				<FormControl>
-					<FormLabel
-						fontWeight="bold"
-						color="#2B6CB0"
-					>
-						Subir Archivo PDF
-					</FormLabel>
-					<Input
-						type="file"
-						accept="application/pdf"
-						onChange={(e) => handlePDFUpload(e.target.files[0])}
+						value={teamData.academia}
+						onChange={(e) => handleInputChange('academia', e.target.value)}
 						focusBorderColor="#2B6CB0"
 					/>
 				</FormControl>

@@ -17,49 +17,154 @@ import {
 	Select,
 	useDisclosure,
 	useToast,
+	VStack,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const UsersPage = () => {
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const toast = useToast();
 	const [editing, setEditing] = useState(false);
+	const [filters, setFilters] = useState({
+		rol: '',
+		correo: '',
+	});
+	const [users, setUsers] = useState([]);
 	const [userData, setUserData] = useState({
 		nombre: '',
 		correo: '',
 		rol: '',
-		clave: '',
+		clave: '', // Boleta o Clave de empleado
+		contrasena: '',
 	});
-	const [users, setUsers] = useState([
-		{
-			id: 1,
-			nombre: 'Juan Pérez',
-			correo: 'juan.perez@mail.com',
-			rol: 'Admin',
-			clave: '202300001',
-		},
-	]);
 
-	const handleInputChange = (key, value) => {
-		setUserData({ ...userData, [key]: value });
+	// Obtener usuarios desde el backend
+	const fetchUsers = async () => {
+		try {
+			const response = await fetch('/api/consult-users', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify(filters),
+			});
+			const result = await response.json();
+
+			if (response.ok) {
+				setUsers(result.usuarios || []);
+			} else {
+				toast({
+					title: 'Error al cargar usuarios',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
+			toast({
+				title: 'Error del servidor',
+				description: 'No se pudieron cargar los usuarios.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
 	};
 
-	const handleSave = () => {
-		const updatedUsers = editing
-			? users.map((user) => (user.id === userData.id ? userData : user))
-			: [...users, { ...userData, id: users.length + 1 }];
+	// Guardar usuario (crear o actualizar)
+	const handleSave = async () => {
+		try {
+			const endpoint = editing ? '/api/update-user' : '/api/create-user';
+			const method = editing ? 'PUT' : 'POST';
 
-		setUsers(updatedUsers);
+			const response = await fetch(endpoint, {
+				method,
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify(userData),
+			});
+			const result = await response.json();
 
-		toast({
-			title: editing ? 'Usuario actualizado.' : 'Usuario creado.',
-			description: 'La operación se realizó exitosamente.',
-			status: 'success',
-			duration: 5000,
-			isClosable: true,
-		});
-		onClose();
+			if (response.ok) {
+				toast({
+					title: editing ? 'Usuario actualizado.' : 'Usuario creado.',
+					description: 'La operación se realizó exitosamente.',
+					status: 'success',
+					duration: 3000,
+					isClosable: true,
+				});
+				fetchUsers();
+				onClose();
+			} else {
+				toast({
+					title: 'Error',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
+			toast({
+				title: 'Error del servidor',
+				description: 'No se pudo guardar el usuario.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
 	};
+
+	// Eliminar usuario
+	const handleDelete = async (clave) => {
+		try {
+			const response = await fetch('/api/delete-user', {
+				method: 'DELETE',
+				headers: {
+					'Content-Type': 'application/json',
+					'log-token': 'your-token-here',
+				},
+				body: JSON.stringify({ clave }),
+			});
+			const result = await response.json();
+
+			if (response.ok) {
+				toast({
+					title: 'Usuario eliminado.',
+					description: `El usuario con clave ${clave} ha sido eliminado.`,
+					status: 'success',
+					duration: 3000,
+					isClosable: true,
+				});
+				fetchUsers();
+			} else {
+				toast({
+					title: 'Error',
+					description: result.message || 'Intenta más tarde.',
+					status: 'error',
+					duration: 3000,
+					isClosable: true,
+				});
+			}
+		} catch (error) {
+			toast({
+				title: 'Error del servidor',
+				description: 'No se pudo eliminar el usuario.',
+				status: 'error',
+				duration: 3000,
+				isClosable: true,
+			});
+		}
+	};
+
+	// Cargar usuarios al montar el componente
+	useEffect(() => {
+		fetchUsers();
+	}, []);
 
 	return (
 		<Box
@@ -67,16 +172,47 @@ const UsersPage = () => {
 			bg="#EDF2F7"
 			minH="100vh"
 		>
+			<Box mb={4}>
+				<Input
+					placeholder="Filtrar por correo"
+					value={filters.correo}
+					onChange={(e) => setFilters({ ...filters, correo: e.target.value })}
+					mb={2}
+				/>
+				<Select
+					placeholder="Filtrar por rol"
+					value={filters.rol}
+					onChange={(e) => setFilters({ ...filters, rol: e.target.value })}
+					mb={4}
+				>
+					<option value="Estudiante">Estudiante</option>
+					<option value="Docente">Docente</option>
+					<option value="Admin">Admin</option>
+				</Select>
+				<Button
+					colorScheme="blue"
+					onClick={fetchUsers}
+				>
+					Filtrar
+				</Button>
+			</Box>
+
 			<Button
-				colorScheme="blue"
+				colorScheme="green"
 				mb={4}
 				onClick={() => {
 					setEditing(false);
-					setUserData({ nombre: '', correo: '', rol: '', clave: '' });
+					setUserData({
+						nombre: '',
+						correo: '',
+						rol: '',
+						clave: '',
+						contrasena: '',
+					});
 					onOpen();
 				}}
 			>
-				Agregar Usuario
+				Crear Usuario
 			</Button>
 
 			<Table
@@ -117,6 +253,7 @@ const UsersPage = () => {
 								<Button
 									colorScheme="red"
 									size="sm"
+									onClick={() => handleDelete(user.clave)}
 								>
 									Eliminar
 								</Button>
@@ -126,7 +263,6 @@ const UsersPage = () => {
 				</Tbody>
 			</Table>
 
-			{/* Modal para agregar/editar usuario */}
 			<Modal
 				isOpen={isOpen}
 				onClose={onClose}
@@ -134,37 +270,54 @@ const UsersPage = () => {
 				<ModalOverlay />
 				<ModalContent>
 					<ModalHeader>
-						{editing ? 'Editar Usuario' : 'Agregar Usuario'}
+						{editing ? 'Editar Usuario' : 'Crear Usuario'}
 					</ModalHeader>
 					<ModalBody>
-						<Input
-							placeholder="Nombre"
-							mb={4}
-							value={userData.nombre}
-							onChange={(e) => handleInputChange('nombre', e.target.value)}
-						/>
-						<Input
-							placeholder="Correo"
-							mb={4}
-							value={userData.correo}
-							onChange={(e) => handleInputChange('correo', e.target.value)}
-						/>
-						<Select
-							placeholder="Seleccione un rol"
-							mb={4}
-							value={userData.rol}
-							onChange={(e) => handleInputChange('rol', e.target.value)}
+						<VStack
+							spacing={4}
+							align="stretch"
 						>
-							<option value="Admin">Admin</option>
-							<option value="Usuario">Usuario</option>
-							<option value="Estudiante">Estudiante</option>
-						</Select>
-						<Input
-							placeholder="Clave/Boleta"
-							mb={4}
-							value={userData.clave}
-							onChange={(e) => handleInputChange('clave', e.target.value)}
-						/>
+							<Input
+								placeholder="Nombre"
+								value={userData.nombre}
+								onChange={(e) =>
+									setUserData({ ...userData, nombre: e.target.value })
+								}
+							/>
+							<Input
+								placeholder="Correo"
+								value={userData.correo}
+								onChange={(e) =>
+									setUserData({ ...userData, correo: e.target.value })
+								}
+							/>
+							<Select
+								placeholder="Seleccione un rol"
+								value={userData.rol}
+								onChange={(e) =>
+									setUserData({ ...userData, rol: e.target.value })
+								}
+							>
+								<option value="Estudiante">Estudiante</option>
+								<option value="Docente">Docente</option>
+								<option value="Admin">Admin</option>
+							</Select>
+							<Input
+								placeholder="Clave/Boleta"
+								value={userData.clave}
+								onChange={(e) =>
+									setUserData({ ...userData, clave: e.target.value })
+								}
+							/>
+							<Input
+								placeholder="Contraseña"
+								type="password"
+								value={userData.contrasena}
+								onChange={(e) =>
+									setUserData({ ...userData, contrasena: e.target.value })
+								}
+							/>
+						</VStack>
 					</ModalBody>
 					<ModalFooter>
 						<Button

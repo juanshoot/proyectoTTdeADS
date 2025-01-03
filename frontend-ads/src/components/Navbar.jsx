@@ -25,11 +25,10 @@ const Navbar = () => {
 			boxShadow="md"
 		>
 			<Box>
-				{/* Reemplazar "Gestión TT" por una imagen */}
 				<Image
-					src="/images/CATT.jpeg" // Ruta de la imagen
+					src="/images/CATT.jpeg"
 					alt="CATT"
-					boxSize="60px" // Tamaño de la imagen
+					boxSize="60px"
 					objectFit="cover"
 				/>
 			</Box>
